@@ -1,0 +1,909 @@
+// SalesFlow B2B — relational data model.
+//
+// Conventions
+// - Every business table carries `organizationId` (tenant). All service-layer
+//   queries are scoped by the caller's organization; see src/server/context.ts.
+// - Primary keys are UUIDs. Human-friendly sequential numbers (LD-00042, ORD-00017 …)
+//   are allocated per organization from the `Counter` table inside a transaction.
+// - Business records are soft-deleted (`deletedAt`) so audit history and
+//   foreign keys stay intact.
+// - Records with workflows carry a `version` column for optimistic concurrency.
+// - Money is stored as Decimal(18,2); quantities as Decimal(18,3).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Tenancy & identity ─────────────────────────────
+
+model Organization {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  slug         String   @unique
+  baseCurrency String   @default("USD") @db.Char(3)
+  timezone     String   @default("UTC")
+  // Configurable workflow & feature settings (validated by src/lib/settings.ts).
+  settings     Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users             User[]
+  roles             Role[]
+  accounts          Account[]
+  leads             Lead[]
+  leadSources       LeadSource[]
+  contacts          Contact[]
+  meetings          Meeting[]
+  products          Product[]
+  productCategories ProductCategory[]
+  taxRates          TaxRate[]
+  tickets           Ticket[]
+  orders            Order[]
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  counters          Counter[]
+  ssoConnections    SsoConnection[]
+}
+
+model User {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  roleId         String    @db.Uuid
+  name           String
+  email          String    @unique // stored lower-cased; globally unique so login is unambiguous
+  username       String?   @unique // stored lower-cased; optional alternative login
+  passwordHash   String?
+  isActive       Boolean   @default(true)
+  jobTitle       String?
+  phone          String?
+  lastLoginAt    DateTime?
+  // Bumped on password change / forced logout; tokens carrying an older value are rejected.
+  sessionVersion Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id])
+
+  identities          UserIdentity[]
+  passwordResetTokens PasswordResetToken[]
+  notifications       Notification[]
+
+  ownedLeads        Lead[]               @relation("LeadOwner")
+  createdLeads      Lead[]               @relation("LeadCreatedBy")
+  modifiedLeads     Lead[]               @relation("LeadModifiedBy")
+  convertedLeads    Lead[]               @relation("LeadConvertedBy")
+  ownedAccounts     Account[]            @relation("AccountOwner")
+  createdAccounts   Account[]            @relation("AccountCreatedBy")
+  modifiedAccounts  Account[]            @relation("AccountModifiedBy")
+  ownedContacts     Contact[]            @relation("ContactOwner")
+  createdContacts   Contact[]            @relation("ContactCreatedBy")
+  modifiedContacts  Contact[]            @relation("ContactModifiedBy")
+  stageChanges      LeadStageHistory[]
+  discussionAuthor  LeadDiscussion[]     @relation("DiscussionAuthor")
+  discussionOwner   LeadDiscussion[]     @relation("DiscussionResponsible")
+  assignedMeetings  Meeting[]            @relation("MeetingAssignee")
+  createdMeetings   Meeting[]            @relation("MeetingCreatedBy")
+  modifiedMeetings  Meeting[]            @relation("MeetingModifiedBy")
+  meetingMinutes    MeetingMinute[]
+  actionItems       ActionItem[]
+  createdProducts   Product[]            @relation("ProductCreatedBy")
+  modifiedProducts  Product[]            @relation("ProductModifiedBy")
+  assignedTickets   Ticket[]             @relation("TicketAssignee")
+  createdTickets    Ticket[]             @relation("TicketCreatedBy")
+  ticketMessages    TicketMessage[]
+  ticketEvents      TicketEvent[]
+  ownedOrders       Order[]              @relation("OrderOwner")
+  createdOrders     Order[]              @relation("OrderCreatedBy")
+  modifiedOrders    Order[]              @relation("OrderModifiedBy")
+  orderStatusEvents OrderStatusHistory[]
+  deliveryEvents    DeliveryEvent[]
+  auditLogs         AuditLog[]
+
+  @@index([organizationId])
+}
+
+// External identity linked to a provisioned user (Google, OIDC SSO …).
+// SalesFlow is invite-only: OAuth sign-in never creates users on its own.
+model UserIdentity {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @db.Uuid
+  provider          String
+  providerAccountId String
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique // sha256 of the emailed token; raw token never stored
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Enterprise SSO connection metadata (OIDC). Credentials live in env vars;
+// this table maps email domains to the connection so the login page can route users.
+model SsoConnection {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  name           String
+  protocol       String   @default("oidc")
+  emailDomain    String
+  enabled        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([emailDomain])
+}
+
+model Role {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  key            String // ADMIN, SALES_MANAGER, SALES_REP, SUPPORT_AGENT, or custom
+  name           String
+  description    String?
+  isSystem       Boolean  @default(false)
+  // ALL = sees every record in the organization; OWN = only records they own/are assigned.
+  dataScope      DataScope @default(ALL)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  permissions  RolePermission[]
+  users        User[]
+
+  @@unique([organizationId, key])
+}
+
+enum DataScope {
+  ALL
+  OWN
+}
+
+// Global catalogue of permission keys, e.g. "lead.create". Seeded from src/lib/permissions.ts.
+model Permission {
+  key         String           @id
+  module      String
+  action      String
+  description String
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId        String @db.Uuid
+  permissionKey String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionKey], references: [key], onDelete: Cascade)
+
+  @@id([roleId, permissionKey])
+}
+
+// Per-organization sequence allocator for human-readable record numbers.
+model Counter {
+  organizationId String @db.Uuid
+  key            String
+  value          Int    @default(0)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, key])
+}
+
+// ───────────────────────────── Accounts & contacts ─────────────────────────────
+
+enum AccountStatus {
+  PROSPECT
+  ACTIVE
+  INACTIVE
+  ON_HOLD
+}
+
+model Account {
+  id                  String        @id @default(uuid()) @db.Uuid
+  organizationId      String        @db.Uuid
+  number              String // ACC-00001
+  name                String
+  nameNormalized      String // lower-cased, punctuation/legal-suffix stripped; used for duplicate detection
+  email               String? // lower-cased
+  phone               String? // E.164
+  website             String?
+  industry            String?
+  addressLine         String?
+  country             String? // ISO 3166-1 alpha-2
+  state               String?
+  city                String?
+  postalCode          String?
+  description         String?
+  status              AccountStatus @default(PROSPECT)
+  ownerId             String        @db.Uuid
+  createdById         String        @db.Uuid
+  modifiedById        String        @db.Uuid
+  duplicateOverride   Boolean       @default(false) // created despite a duplicate warning
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  deletedAt           DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  owner        User         @relation("AccountOwner", fields: [ownerId], references: [id])
+  createdBy    User         @relation("AccountCreatedBy", fields: [createdById], references: [id])
+  modifiedBy   User         @relation("AccountModifiedBy", fields: [modifiedById], references: [id])
+
+  leads    Lead[]
+  contacts Contact[]
+  meetings Meeting[]
+  tickets  Ticket[]
+  orders   Order[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, nameNormalized])
+  @@index([organizationId, email])
+  @@index([organizationId, phone])
+  @@index([organizationId, ownerId])
+  @@index([organizationId, deletedAt, createdAt])
+}
+
+enum ContactStatus {
+  ACTIVE
+  INACTIVE
+  LEFT_COMPANY
+}
+
+enum CommunicationChannel {
+  EMAIL
+  PHONE
+  WHATSAPP
+  IN_PERSON
+  VIDEO_CALL
+}
+
+enum SubscriptionStatus {
+  NOT_SUBSCRIBED
+  SUBSCRIBED
+  UNSUBSCRIBED
+}
+
+model Contact {
+  id                   String               @id @default(uuid()) @db.Uuid
+  organizationId       String               @db.Uuid
+  number               String // CON-00001
+  firstName            String
+  lastName             String
+  email                String? // lower-cased
+  phone                String? // E.164
+  designation          String?
+  department           String?
+  accountId            String?              @db.Uuid
+  ownerId              String               @db.Uuid
+  preferredChannel     CommunicationChannel @default(EMAIL)
+  status               ContactStatus        @default(ACTIVE)
+  source               String?
+  notes                String?
+  // Campaign readiness — no mass email is sent by SalesFlow itself.
+  marketingConsent     Boolean              @default(false)
+  consentAt            DateTime?
+  consentSource        String?
+  subscriptionStatus   SubscriptionStatus   @default(NOT_SUBSCRIBED)
+  unsubscribedAt       DateTime?
+  createdById          String               @db.Uuid
+  modifiedById         String               @db.Uuid
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  deletedAt            DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account      Account?     @relation(fields: [accountId], references: [id])
+  owner        User         @relation("ContactOwner", fields: [ownerId], references: [id])
+  createdBy    User         @relation("ContactCreatedBy", fields: [createdById], references: [id])
+  modifiedBy   User         @relation("ContactModifiedBy", fields: [modifiedById], references: [id])
+
+  leadLinks     LeadContact[]
+  meetingLinks  MeetingContact[]
+  tickets       Ticket[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, accountId])
+  @@index([organizationId, email])
+  @@index([organizationId, ownerId])
+}
+
+// ───────────────────────────────── Leads ─────────────────────────────────
+
+enum LeadStage {
+  QUALIFIED
+  IN_DISCUSSION
+  MATURE
+  CONVERTED
+}
+
+model LeadSource {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  name           String
+  isSystem       Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leads        Lead[]
+
+  @@unique([organizationId, name])
+}
+
+model Lead {
+  id              String    @id @default(uuid()) @db.Uuid
+  organizationId  String    @db.Uuid
+  number          String // LD-00001
+  name            String
+  email           String // lower-cased
+  phone           String // E.164
+  companyName     String // free text captured at entry; account link set when known
+  accountId       String?   @db.Uuid
+  sourceId        String    @db.Uuid
+  ownerId         String    @db.Uuid
+  stage           LeadStage @default(QUALIFIED)
+  estimatedValue  Decimal   @default(0) @db.Decimal(18, 2)
+  currency        String    @db.Char(3)
+  description     String?
+  nextFollowUpAt  DateTime?
+  convertedAt     DateTime?
+  convertedById   String?   @db.Uuid
+  createdById     String    @db.Uuid
+  modifiedById    String    @db.Uuid
+  version         Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account      Account?     @relation(fields: [accountId], references: [id])
+  source       LeadSource   @relation(fields: [sourceId], references: [id])
+  owner        User         @relation("LeadOwner", fields: [ownerId], references: [id])
+  createdBy    User         @relation("LeadCreatedBy", fields: [createdById], references: [id])
+  modifiedBy   User         @relation("LeadModifiedBy", fields: [modifiedById], references: [id])
+  convertedBy  User?        @relation("LeadConvertedBy", fields: [convertedById], references: [id])
+
+  stageHistory LeadStageHistory[]
+  discussions  LeadDiscussion[]
+  contacts     LeadContact[]
+  meetings     Meeting[]
+  tickets      Ticket[]
+  orders       Order[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, stage])
+  @@index([organizationId, ownerId])
+  @@index([organizationId, sourceId])
+  @@index([organizationId, accountId])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, convertedAt])
+  @@index([organizationId, nextFollowUpAt])
+}
+
+// Buyer contacts associated with a lead (set during conversion or manually).
+model LeadContact {
+  leadId    String   @db.Uuid
+  contactId String   @db.Uuid
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  lead    Lead    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@id([leadId, contactId])
+}
+
+model LeadStageHistory {
+  id          String     @id @default(uuid()) @db.Uuid
+  leadId      String     @db.Uuid
+  fromStage   LeadStage?
+  toStage     LeadStage
+  note        String?
+  changedById String     @db.Uuid
+  changedAt   DateTime   @default(now())
+
+  lead      Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  changedBy User @relation(fields: [changedById], references: [id])
+
+  @@index([leadId, changedAt])
+}
+
+model LeadDiscussion {
+  id                 String    @id @default(uuid()) @db.Uuid
+  leadId             String    @db.Uuid
+  meetingId          String?   @db.Uuid // set when logged from a meeting's history
+  discussedAt        DateTime
+  summary            String
+  requirements       String?
+  objections         String?
+  nextSteps          String?
+  nextFollowUpAt     DateTime?
+  responsibleUserId  String    @db.Uuid
+  createdById        String    @db.Uuid
+  createdAt          DateTime  @default(now())
+
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  meeting     Meeting? @relation(fields: [meetingId], references: [id])
+  responsible User     @relation("DiscussionResponsible", fields: [responsibleUserId], references: [id])
+  createdBy   User     @relation("DiscussionAuthor", fields: [createdById], references: [id])
+
+  @@index([leadId, discussedAt])
+}
+
+// ───────────────────────────── Meetings & MOM ─────────────────────────────
+
+enum MeetingType {
+  IN_PERSON
+  VIDEO_CALL
+  PHONE_CALL
+  SITE_VISIT
+  DEMO
+  OTHER
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+model Meeting {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @db.Uuid
+  number         String // MTG-00001
+  title          String
+  scheduledAt    DateTime
+  durationMins   Int           @default(60)
+  type           MeetingType   @default(VIDEO_CALL)
+  status         MeetingStatus @default(SCHEDULED)
+  location       String?
+  agenda         String? // "Meeting notes" captured before the meeting
+  accountId      String?       @db.Uuid
+  leadId         String?       @db.Uuid
+  assignedToId   String        @db.Uuid
+  nextFollowUpAt DateTime?
+  createdById    String        @db.Uuid
+  modifiedById   String        @db.Uuid
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account      Account?         @relation(fields: [accountId], references: [id])
+  lead         Lead?            @relation(fields: [leadId], references: [id])
+  assignedTo   User             @relation("MeetingAssignee", fields: [assignedToId], references: [id])
+  createdBy    User             @relation("MeetingCreatedBy", fields: [createdById], references: [id])
+  modifiedBy   User             @relation("MeetingModifiedBy", fields: [modifiedById], references: [id])
+  contacts     MeetingContact[]
+  minutes      MeetingMinute[]
+  actionItems  ActionItem[]
+  discussions  LeadDiscussion[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, scheduledAt])
+  @@index([organizationId, assignedToId])
+  @@index([organizationId, accountId])
+  @@index([organizationId, leadId])
+}
+
+model MeetingContact {
+  meetingId String @db.Uuid
+  contactId String @db.Uuid
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@id([meetingId, contactId])
+}
+
+// Minutes of meeting. A meeting can have several MOM entries (e.g. revisions/addenda).
+model MeetingMinute {
+  id           String   @id @default(uuid()) @db.Uuid
+  meetingId    String   @db.Uuid
+  summary      String
+  requirements String?
+  decisions    String?
+  notes        String?
+  authorId     String   @db.Uuid
+  createdAt    DateTime @default(now())
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id])
+
+  @@index([meetingId, createdAt])
+}
+
+enum ActionItemStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+model ActionItem {
+  id          String           @id @default(uuid()) @db.Uuid
+  meetingId   String           @db.Uuid
+  description String
+  ownerId     String           @db.Uuid
+  dueDate     DateTime?
+  status      ActionItemStatus @default(OPEN)
+  completedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  owner   User    @relation(fields: [ownerId], references: [id])
+
+  @@index([ownerId, status, dueDate])
+  @@index([meetingId])
+}
+
+// ───────────────────────────── Product catalogue ─────────────────────────────
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  OUT_OF_STOCK
+  DISCONTINUED
+}
+
+model ProductCategory {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  name           String
+  description    String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products     Product[]
+
+  @@unique([organizationId, name])
+}
+
+model TaxRate {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  name           String // e.g. "GST 18%", "VAT Standard"
+  ratePercent    Decimal  @db.Decimal(6, 3)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products     Product[]
+
+  @@unique([organizationId, name])
+}
+
+model Product {
+  id               String        @id @default(uuid()) @db.Uuid
+  organizationId   String        @db.Uuid
+  number           String // PRD-00001
+  name             String
+  sku              String
+  skuNormalized    String // upper-cased & trimmed; unique per organization
+  categoryId       String?       @db.Uuid
+  shortDescription String?
+  description      String?
+  unitOfMeasure    String        @default("Each")
+  listPrice        Decimal       @db.Decimal(18, 2)
+  currency         String        @db.Char(3)
+  taxRateId        String?       @db.Uuid
+  status           ProductStatus @default(ACTIVE)
+  imageUrl         String?
+  createdById      String        @db.Uuid
+  modifiedById     String        @db.Uuid
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  deletedAt        DateTime?
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     ProductCategory? @relation(fields: [categoryId], references: [id])
+  taxRate      TaxRate?         @relation(fields: [taxRateId], references: [id])
+  createdBy    User             @relation("ProductCreatedBy", fields: [createdById], references: [id])
+  modifiedBy   User             @relation("ProductModifiedBy", fields: [modifiedById], references: [id])
+  orderLines   OrderLineItem[]
+
+  @@unique([organizationId, number])
+  @@unique([organizationId, skuNormalized])
+  @@index([organizationId, status])
+  @@index([organizationId, categoryId])
+}
+
+// ───────────────────────────── Support tickets ─────────────────────────────
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_FOR_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  GENERAL_INQUIRY
+  PRODUCT_QUESTION
+  ORDER_ISSUE
+  DELIVERY_ISSUE
+  BILLING
+  COMPLAINT
+  TECHNICAL
+  OTHER
+}
+
+model Ticket {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @db.Uuid
+  number         String // TKT-00001
+  subject        String
+  description    String
+  category       TicketCategory @default(GENERAL_INQUIRY)
+  priority       TicketPriority @default(MEDIUM)
+  status         TicketStatus   @default(OPEN)
+  accountId      String         @db.Uuid
+  contactId      String?        @db.Uuid
+  leadId         String?        @db.Uuid
+  orderId        String?        @db.Uuid
+  assignedToId   String?        @db.Uuid
+  resolutionNote String?
+  resolvedAt     DateTime?
+  closedAt       DateTime?
+  createdById    String         @db.Uuid
+  version        Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account      Account         @relation(fields: [accountId], references: [id])
+  contact      Contact?        @relation(fields: [contactId], references: [id])
+  lead         Lead?           @relation(fields: [leadId], references: [id])
+  order        Order?          @relation(fields: [orderId], references: [id])
+  assignedTo   User?           @relation("TicketAssignee", fields: [assignedToId], references: [id])
+  createdBy    User            @relation("TicketCreatedBy", fields: [createdById], references: [id])
+  messages     TicketMessage[]
+  events       TicketEvent[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, status])
+  @@index([organizationId, assignedToId])
+  @@index([organizationId, accountId])
+  @@index([organizationId, orderId])
+}
+
+enum TicketMessageKind {
+  INTERNAL_NOTE
+  CUSTOMER_REPLY
+}
+
+enum MessageDelivery {
+  NOT_APPLICABLE // internal notes
+  RECORDED_ONLY // no email provider configured; reply stored but not sent
+  QUEUED
+  SENT
+  FAILED
+}
+
+model TicketMessage {
+  id        String            @id @default(uuid()) @db.Uuid
+  ticketId  String            @db.Uuid
+  kind      TicketMessageKind
+  body      String
+  delivery  MessageDelivery   @default(NOT_APPLICABLE)
+  authorId  String            @db.Uuid
+  createdAt DateTime          @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId, createdAt])
+}
+
+// Field-level history for a ticket (status, priority, assignment changes).
+model TicketEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  ticketId  String   @db.Uuid
+  field     String // status | priority | assignedTo
+  fromValue String?
+  toValue   String?
+  actorId   String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor  User   @relation(fields: [actorId], references: [id])
+
+  @@index([ticketId, createdAt])
+}
+
+// ───────────────────────────── Orders & delivery ─────────────────────────────
+
+enum OrderStatus {
+  DRAFT
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum DeliveryStatus {
+  NOT_SHIPPED
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  EXCEPTION
+  CANCELLED
+}
+
+model Order {
+  id                   String         @id @default(uuid()) @db.Uuid
+  organizationId       String         @db.Uuid
+  number               String // ORD-00001
+  accountId            String         @db.Uuid
+  leadId               String?        @db.Uuid
+  ownerId              String         @db.Uuid
+  orderDate            DateTime
+  expectedDeliveryDate DateTime?
+  actualDeliveryDate   DateTime?
+  billingAddress       String
+  shippingAddress      String
+  currency             String         @db.Char(3)
+  // Server-computed totals (sum of line items). Never accepted from the client.
+  subtotal             Decimal        @default(0) @db.Decimal(18, 2)
+  discountTotal        Decimal        @default(0) @db.Decimal(18, 2)
+  taxTotal             Decimal        @default(0) @db.Decimal(18, 2)
+  total                Decimal        @default(0) @db.Decimal(18, 2)
+  status               OrderStatus    @default(DRAFT)
+  deliveryStatus       DeliveryStatus @default(NOT_SHIPPED)
+  carrier              String?
+  trackingNumber       String?
+  notes                String?
+  // Financial lifecycle (invoicing/payments) is intentionally not modelled yet; see docs/ROADMAP.md.
+  createdById          String         @db.Uuid
+  modifiedById         String         @db.Uuid
+  version              Int            @default(0)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  deletedAt            DateTime?
+
+  organization  Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account       Account              @relation(fields: [accountId], references: [id])
+  lead          Lead?                @relation(fields: [leadId], references: [id])
+  owner         User                 @relation("OrderOwner", fields: [ownerId], references: [id])
+  createdBy     User                 @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  modifiedBy    User                 @relation("OrderModifiedBy", fields: [modifiedById], references: [id])
+  lineItems     OrderLineItem[]
+  statusHistory OrderStatusHistory[]
+  deliveryEvents DeliveryEvent[]
+  tickets       Ticket[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, status])
+  @@index([organizationId, orderDate])
+  @@index([organizationId, accountId])
+  @@index([organizationId, ownerId])
+}
+
+model OrderLineItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  orderId         String   @db.Uuid
+  productId       String   @db.Uuid
+  position        Int
+  // Snapshot of catalogue data at the time the line was priced.
+  productName     String
+  productSku      String
+  description     String?
+  unitOfMeasure   String
+  quantity        Decimal  @db.Decimal(18, 3)
+  unitPrice       Decimal  @db.Decimal(18, 2)
+  listPriceAtSale Decimal  @db.Decimal(18, 2)
+  discountPercent Decimal  @default(0) @db.Decimal(5, 2)
+  taxRatePercent  Decimal  @default(0) @db.Decimal(6, 3)
+  taxRateName     String?
+  lineSubtotal    Decimal  @db.Decimal(18, 2) // quantity × unitPrice
+  discountAmount  Decimal  @db.Decimal(18, 2)
+  taxAmount       Decimal  @db.Decimal(18, 2)
+  lineTotal       Decimal  @db.Decimal(18, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([orderId, position])
+  @@index([productId])
+}
+
+model OrderStatusHistory {
+  id          String       @id @default(uuid()) @db.Uuid
+  orderId     String       @db.Uuid
+  fromStatus  OrderStatus?
+  toStatus    OrderStatus
+  note        String?
+  changedById String       @db.Uuid
+  changedAt   DateTime     @default(now())
+
+  order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changedBy User  @relation(fields: [changedById], references: [id])
+
+  @@index([orderId, changedAt])
+}
+
+model DeliveryEvent {
+  id             String         @id @default(uuid()) @db.Uuid
+  orderId        String         @db.Uuid
+  status         DeliveryStatus
+  occurredAt     DateTime
+  location       String?
+  carrier        String?
+  trackingNumber String?
+  note           String?
+  recordedById   String         @db.Uuid
+  createdAt      DateTime       @default(now())
+
+  order      Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  recordedBy User  @relation(fields: [recordedById], references: [id])
+
+  @@index([orderId, occurredAt])
+}
+
+// ───────────────────────────── Audit & notifications ─────────────────────────────
+
+model AuditLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @db.Uuid
+  actorId        String?  @db.Uuid
+  entityType     String // Lead, Account, Order …
+  entityId       String   @db.Uuid
+  action         String // created, updated, stage_changed, converted …
+  summary        String
+  changes        Json? // { field: { from, to } }
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, entityType, entityId])
+  @@index([organizationId, actorId])
+}
+
+model Notification {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  userId         String    @db.Uuid
+  type           String // lead_assigned, ticket_assigned, order_status, meeting_upcoming, action_overdue …
+  title          String
+  body           String?
+  link           String?
+  // Prevents generating the same reminder twice (e.g. "action-overdue:<id>").
+  dedupeKey      String?
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, readAt, createdAt])
+}
