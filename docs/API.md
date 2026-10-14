@@ -39,6 +39,7 @@ Field formats: dates are `YYYY-MM-DD` (date-only fields); date-times are `YYYY-M
 | `POST /api/notifications` | session | Body `{ ids?: uuid[] }`: marks the given notifications (or all) as read → `{ ok: true }` |
 | `GET /api/export/{leads\|accounts\|contacts\|orders}` | `<module>.export` | CSV (UTF-8 with BOM) using the same query-string filters as the list page |
 | `GET /api/export/report?period=&from=&to=&owner=&source=&groupBy=` | `report.export` | Grouped lead report plus salesperson performance as CSV |
+| `POST /api/assistant` | session | Body `{ messages: { role: "user"\|"assistant", content }[] }` (last message from the user). Streams newline-delimited JSON events: `{type:"text",delta}`, `{type:"tool",name}`, `{type:"done"}`, `{type:"error",message}`. 503 `NOT_CONFIGURED` without `ANTHROPIC_API_KEY`; 429 `RATE_LIMITED` above 30 requests per user per 10 minutes |
 | `GET/POST /api/auth/*` | – | Auth.js (sign-in, callbacks for `google` and `sso`, session, sign-out) |
 
 List pages accept these query parameters: `q`, `page`, `pageSize` (10/25/50/100), `sort` (whitelisted column), `dir` (`asc`/`desc`), plus module filters. Examples: leads `stage, source, owner, account, createdFrom, createdTo, followUpFrom, followUpTo, overdue=1`; orders `status, delivery, account, owner, from, to, active=1`; tickets `status, priority, category, assignee (uuid|me|unassigned), open=1`.

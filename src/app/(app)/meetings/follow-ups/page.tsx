@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { pageContext } from "@/server/context";
+import { canFilterByOwner, pageContext } from "@/server/context";
 import { getFollowUps } from "@/server/services/meetings";
 import { PageHeader } from "@/components/data/page-header";
 import { SectionCard } from "@/components/data/section-card";
@@ -15,11 +15,12 @@ export const metadata: Metadata = { title: "Follow-ups" };
 export default async function FollowUpsPage({ searchParams }: { searchParams: Promise<{ scope?: string; days?: string }> }) {
   const ctx = await pageContext("meeting.view");
   const sp = await searchParams;
-  const mine = sp.scope !== "team" || ctx.dataScope === "OWN";
+  const hasTeam = canFilterByOwner(ctx);
+  const mine = sp.scope !== "team" || !hasTeam;
   const days = [7, 14, 30].includes(Number(sp.days)) ? Number(sp.days) : 14;
   const f = await getFollowUps(ctx, { mine, days });
   const tz = ctx.org.timezone;
-  const chip = (active: boolean) => cn("rounded-md px-2.5 py-1 text-sm", active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted");
+  const chip = (active: boolean) => cn("rounded-lg px-3 py-1.5 text-sm font-medium", active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground");
   const overdueCount = f.actionItems.filter((a) => a.overdue).length + f.leads.filter((l) => l.overdue).length;
 
   return (
@@ -30,13 +31,13 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
         breadcrumbs={[{ label: "Meetings & MOM", href: "/meetings" }, { label: "Follow-ups" }]}
       />
       <div className="mb-4 flex flex-wrap gap-2">
-        {ctx.dataScope === "ALL" && (
-          <div className="flex gap-1 rounded-lg border bg-card p-1">
+        {hasTeam && (
+          <div className="flex gap-1 rounded-xl border border-border/70 bg-card p-1 shadow-sm">
             <Link href={`?scope=mine&days=${days}`} className={chip(mine)}>Mine</Link>
-            <Link href={`?scope=team&days=${days}`} className={chip(!mine)}>Whole team</Link>
+            <Link href={`?scope=team&days=${days}`} className={chip(!mine)}>{ctx.dataScope === "ALL" ? "Whole team" : "My team"}</Link>
           </div>
         )}
-        <div className="flex gap-1 rounded-lg border bg-card p-1">
+        <div className="flex gap-1 rounded-xl border border-border/70 bg-card p-1 shadow-sm">
           {[7, 14, 30].map((d) => (
             <Link key={d} href={`?scope=${mine ? "mine" : "team"}&days=${d}`} className={chip(days === d)}>
               {d} days

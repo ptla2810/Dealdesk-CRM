@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Download, Plus, Target } from "lucide-react";
-import { pageContext } from "@/server/context";
+import { canFilterByOwner, pageContext, visibleUsers } from "@/server/context";
 import { listLeads, leadSourceOptions } from "@/server/services/leads";
 import { listAssignableUsers } from "@/server/services/users";
 import { accountOptions } from "@/server/services/accounts";
@@ -111,7 +111,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         filters={[
           { key: "stage", label: "Stages", type: "select", options: LEAD_STAGES.map((s) => ({ value: s, label: LEAD_STAGE_META[s].label })) },
           { key: "source", label: "Sources", type: "select", options: sources.map((s) => ({ value: s.id, label: s.name })) },
-          ...(ctx.dataScope === "ALL" ? [{ key: "owner", label: "Owners", type: "select" as const, options: users.map((u) => ({ value: u.id, label: u.name })) }] : []),
+          ...(canFilterByOwner(ctx) ? [{ key: "owner", label: "Owners", type: "select" as const, options: visibleUsers(ctx, users).map((u) => ({ value: u.id, label: u.name })) }] : []),
           { key: "account", label: "Accounts", type: "select", options: accounts.map((a) => ({ value: a.id, label: a.name })) },
           { key: "createdFrom", label: "Created from", type: "date" },
           { key: "createdTo", label: "Created to", type: "date" },

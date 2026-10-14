@@ -51,7 +51,7 @@ export function FilterBar({ filters = [], searchPlaceholder = "Search…" }: { f
   const active = keys.some((k) => params.get(k));
 
   return (
-    <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-end" role="search">
+    <div className="mb-4 flex flex-col gap-2 rounded-2xl border border-border/70 bg-card p-3 shadow-sm sm:p-4 lg:flex-row lg:flex-wrap lg:items-end" role="search">
       <div className="relative min-w-0 flex-1 lg:max-w-xs">
         <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
         <Input value={q} onChange={(e) => onSearch(e.target.value)} placeholder={searchPlaceholder} aria-label="Search" className="pl-8" />
@@ -61,7 +61,7 @@ export function FilterBar({ filters = [], searchPlaceholder = "Search…" }: { f
           const value = params.get(f.key) ?? "";
           if (f.type === "checkbox") {
             return (
-              <label key={f.key} className="flex h-9 items-center gap-2 rounded-md border bg-background px-3 text-sm">
+              <label key={f.key} className="flex h-9 items-center gap-2 rounded-lg border bg-background px-3 text-sm font-medium">
                 <input type="checkbox" className="size-4 accent-[var(--primary)]" checked={value === "1"} onChange={(e) => apply({ [f.key]: e.target.checked ? "1" : undefined })} />
                 {f.label}
               </label>
@@ -69,20 +69,20 @@ export function FilterBar({ filters = [], searchPlaceholder = "Search…" }: { f
           }
           if (f.type === "date") {
             return (
-              <label key={f.key} className="flex flex-col gap-1 text-xs text-muted-foreground">
+              <label key={f.key} className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
                 {f.label}
                 <Input type="date" value={value} onChange={(e) => apply({ [f.key]: e.target.value || undefined })} className="h-9 w-full sm:w-40" />
               </label>
             );
           }
           return (
-            <label key={f.key} className="flex flex-col gap-1 text-xs text-muted-foreground">
+            <label key={f.key} className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
               <span className="sr-only sm:not-sr-only">{f.label}</span>
               <select
                 value={value}
                 onChange={(e) => apply({ [f.key]: e.target.value || undefined })}
                 className={cn(
-                  "h-9 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground shadow-xs sm:w-44",
+                  "h-9 w-full rounded-lg border border-input bg-background px-2 text-sm text-foreground shadow-xs sm:w-44",
                   "focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none",
                 )}
                 aria-label={f.label}

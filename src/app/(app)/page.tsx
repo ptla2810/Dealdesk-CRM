@@ -1,12 +1,11 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { AlertCircle, CalendarClock, CheckCircle2, CircleDollarSign, Filter, Percent, ShoppingCart, Target, TrendingUp, Users } from "lucide-react";
-import { pageContext } from "@/server/context";
+import { AlertCircle, CalendarClock, CheckCircle2, CircleDollarSign, Filter, Percent, ShoppingCart, Sparkles, Target, TrendingUp, Users } from "lucide-react";
+import { canFilterByOwner, pageContext, visibleUsers } from "@/server/context";
 import { getDashboard, getRecentActivity } from "@/server/services/dashboard";
 import { getFollowUps } from "@/server/services/meetings";
 import { listAssignableUsers } from "@/server/services/users";
 import { leadSourceOptions } from "@/server/services/leads";
-import { PageHeader } from "@/components/data/page-header";
 import { KpiCard } from "@/components/data/kpi-card";
 import { SectionCard } from "@/components/data/section-card";
 import { StatusBadge } from "@/components/data/status-badge";
@@ -33,12 +32,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const ctx = await pageContext("dashboard.view");
   const sp = await searchParams;
   const filters = readDashboardFilters(sp, ctx.org.timezone);
-  const canFilterPeople = ctx.dataScope === "ALL";
+  const canFilterPeople = canFilterByOwner(ctx);
   const [d, followUps, activity, users, sources] = await Promise.all([
     getDashboard(ctx, filters),
     ctx.can("meeting.view") ? getFollowUps(ctx, { mine: true, days: 7 }) : null,
     getRecentActivity(ctx, 8),
-    canFilterPeople ? listAssignableUsers(ctx) : [],
+    canFilterPeople ? listAssignableUsers(ctx).then((u) => visibleUsers(ctx, u)) : [],
     leadSourceOptions(ctx, true),
   ]);
   const k = d.kpis;
@@ -57,15 +56,25 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   return (
     <>
-      <PageHeader
-        title={`Welcome back, ${ctx.user.name.split(" ")[0]}`}
-        description={
-          <>
-            Sales performance for <strong>{filters.range.label}</strong>
-            {ctx.dataScope === "OWN" ? " — showing your own records" : ""}. Figures are live from the database.
-          </>
-        }
-      />
+      <section aria-labelledby="dashboard-title" className="relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-from to-brand-to px-5 py-6 text-white shadow-lg sm:px-8 sm:py-7">
+        <div aria-hidden className="pointer-events-none absolute -top-24 -right-16 size-72 rounded-full bg-white/10 blur-2xl" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/3 size-72 rounded-full bg-sky-300/15 blur-3xl" />
+        <div className="relative">
+          <div className="min-w-0 space-y-2">
+            <p className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-white/75 uppercase">
+              <Sparkles className="size-3.5" aria-hidden /> {ctx.org.name}
+            </p>
+            <h1 id="dashboard-title" className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              Welcome back, {ctx.user.name.split(" ")[0]}
+            </h1>
+            <p className="max-w-xl text-sm text-white/80">
+              Sales performance for <strong className="text-white">{filters.range.label}</strong>
+              {ctx.dataScope === "OWN" ? (ctx.teamUserIds.length > 1 ? " — showing you and your team" : " — showing your own records") : ""}. Figures are live from the database.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <PeriodFilter owners={canFilterPeople ? users.map((u) => ({ id: u.id, name: u.name })) : undefined} sources={sources.map((s) => ({ id: s.id, name: s.name }))} />
 
       <section aria-label="Key metrics" className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -75,6 +84,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <KpiCard
           label="Lead Conversion Rate"
           icon={Percent}
+         
           value={formatPercent(k.conversionRate)}
           hint={`${k.cohortConverted} of ${k.totalLeads} leads created`}
           definition="Leads created in the period that are now converted ÷ leads created in the period."
@@ -82,6 +92,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <KpiCard
           label="Sales Pipeline Value"
           icon={TrendingUp}
+         
           value={formatMoney(k.pipelineValue, cur, { compact: true })}
           hint={`All open: ${formatMoney(k.pipelineValueAllOpen, cur, { compact: true })} · forecast, not revenue`}
           definition="Sum of estimated deal value of open (not converted) leads created in the period. This is a forecast, not revenue."
@@ -89,6 +100,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <KpiCard
           label="Total Sales Volume"
           icon={CircleDollarSign}
+         
           value={formatMoney(k.salesVolume, cur, { compact: true })}
           hint={`${k.salesVolumeOrders} orders${k.otherCurrencyOrders ? ` · ${k.otherCurrencyOrders} in other currencies excluded` : ""}`}
           definition={`Total value (incl. tax) of ${cur} orders dated in the period with status Confirmed, Processing, Shipped or Delivered. Drafts and cancelled orders are excluded; each order counted once. Not the same as cash collected.`}
@@ -97,18 +109,22 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <KpiCard label="Orders in Progress" icon={ShoppingCart} value={formatNumber(k.ordersInProgress)} hint="Confirmed, processing or shipped" definition="Orders dated in the period whose status is Confirmed, Processing or Shipped." />
       </section>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+      <DashboardSection title="Leads & conversion" description="How leads move through the pipeline and where they come from">
         <FunnelChart data={d.funnel.map((f) => ({ label: LEAD_STAGE_META[f.stage].label, reached: f.reached }))} />
         <LeadsByStageChart data={d.byStage.map((s) => ({ label: LEAD_STAGE_META[s.stage].label, count: s.count, value: s.value }))} />
         <ConversionTrendChart data={d.conversionTrend.points} />
-        <SalesTrendChart data={d.salesTrend.points} currency={cur} />
         <LeadSourcesChart data={d.sources} />
+      </DashboardSection>
+
+      <DashboardSection title="Revenue & team" description="Sales volume, pipeline value, order status and salesperson performance">
+        <SalesTrendChart data={d.salesTrend.points} currency={cur} />
         <PipelineByStageChart data={d.byStage.map((s) => ({ label: LEAD_STAGE_META[s.stage].label, count: s.count, value: s.value }))} currency={cur} />
         <SalespersonChart data={d.performance} currency={cur} />
         <OrderStatusChart data={d.orderStatus.map((o) => ({ label: ORDER_STATUS_META[o.status].label, count: o.count, value: o.value }))} />
-      </div>
+      </DashboardSection>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+      <h2 className="mt-8 mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">Your work</h2>
+      <div className="grid gap-4 lg:grid-cols-2">
         {followUps && (
           <SectionCard
             title="My upcoming commitments"
@@ -132,7 +148,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                       </Link>
                       <div className="text-xs text-muted-foreground">{c.sub}</div>
                     </div>
-                    {c.overdue && <StatusBadge tone="danger">Overdue</StatusBadge>}
+                    {c.overdue && <StatusBadge>Overdue</StatusBadge>}
                   </li>
                 ))}
               </ul>
@@ -167,5 +183,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </SectionCard>
       </div>
     </>
+  );
+}
+
+function DashboardSection({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+  const id = `section-${title.toLowerCase().replace(/[^a-z]+/g, "-")}`;
+  return (
+    <section aria-labelledby={id} className="mt-8">
+      <div className="mb-3">
+        <h2 id={id} className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+          {title}
+        </h2>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">{children}</div>
+    </section>
   );
 }

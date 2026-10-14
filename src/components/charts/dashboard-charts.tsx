@@ -16,9 +16,11 @@ import {
 } from "recharts";
 import { ChartCard } from "./chart-card";
 
-// Reference data-viz palette (validated: scripts/validate_palette.js). Categorical slots in fixed order.
-export const SERIES = ["#2a78d6", "#eb6834", "#1baf7a"] as const;
-// Ordinal blue ramp for ordered funnel stages (light end ≥ 2:1 on the surface).
+// Single-hue theme palette: shades of the LeadZen blue (validated with the data-viz palette validator,
+// ordinal mode: monotone lightness, visible steps, light end ≥ 2:1 on the card surface).
+// Two-series charts pair the dark and light shade and always show a legend; lines also differ by dash.
+const BLUE = { main: "#2a78d6", dark: "#184f95", light: "#6da7ec" } as const;
+// Ordinal ramp for ordered funnel stages, light → dark.
 const ORDINAL = ["#86b6ef", "#5598e7", "#256abf", "#184f95"];
 const GRID = "var(--border)";
 const AXIS = { fontSize: 12, fill: "var(--muted-foreground)" };
@@ -83,7 +85,7 @@ export function LeadsByStageChart({ data }: { data: DashboardChartData["byStage"
           <XAxis dataKey="label" tick={AXIS} axisLine={false} tickLine={false} interval={0} />
           <YAxis allowDecimals={false} tick={AXIS} axisLine={false} tickLine={false} />
           <Tooltip {...tooltipStyle} formatter={(v) => [v, "Leads"]} />
-          <Bar dataKey="count" fill={SERIES[0]} radius={[4, 4, 0, 0]} maxBarSize={48} isAnimationActive={false}>
+          <Bar dataKey="count" fill={BLUE.main} radius={[4, 4, 0, 0]} maxBarSize={48} isAnimationActive={false}>
             <LabelList dataKey="count" position="top" className="fill-foreground text-xs" />
           </Bar>
         </BarChart>
@@ -107,7 +109,7 @@ export function PipelineByStageChart({ data, currency }: { data: DashboardChartD
           <XAxis dataKey="label" tick={AXIS} axisLine={false} tickLine={false} />
           <YAxis tickFormatter={money(currency)} tick={AXIS} axisLine={false} tickLine={false} width={64} />
           <Tooltip {...tooltipStyle} formatter={(v) => [moneyFull(currency)(Number(v)), "Pipeline"]} />
-          <Bar dataKey="value" fill={SERIES[0]} radius={[4, 4, 0, 0]} maxBarSize={56} isAnimationActive={false}>
+          <Bar dataKey="value" fill={BLUE.main} radius={[4, 4, 0, 0]} maxBarSize={56} isAnimationActive={false}>
             <LabelList dataKey="value" position="top" className="fill-foreground text-xs" formatter={(v) => money(currency)(Number(v))} />
           </Bar>
         </BarChart>
@@ -134,8 +136,8 @@ export function LeadSourcesChart({ data }: { data: DashboardChartData["sources"]
           <YAxis type="category" dataKey="name" width={130} tick={AXIS} axisLine={false} tickLine={false} />
           <Tooltip {...tooltipStyle} />
           <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
-          <Bar dataKey="total" name="Leads" fill={SERIES[0]} radius={[0, 4, 4, 0]} isAnimationActive={false} />
-          <Bar dataKey="converted" name="Converted" fill={SERIES[1]} radius={[0, 4, 4, 0]} isAnimationActive={false} />
+          <Bar dataKey="total" name="Leads" fill={BLUE.dark} radius={[0, 4, 4, 0]} isAnimationActive={false} />
+          <Bar dataKey="converted" name="Converted" fill={BLUE.light} radius={[0, 4, 4, 0]} isAnimationActive={false} />
         </BarChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -157,8 +159,8 @@ export function ConversionTrendChart({ data }: { data: DashboardChartData["conve
           <YAxis allowDecimals={false} tick={AXIS} axisLine={false} tickLine={false} />
           <Tooltip {...tooltipStyle} cursor={{ stroke: "var(--muted-foreground)", strokeDasharray: "3 3" }} />
           <Legend iconType="plainline" wrapperStyle={{ fontSize: 12 }} />
-          <Line type="linear" dataKey="created" name="Created" stroke={SERIES[0]} strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--card)" }} isAnimationActive={false} />
-          <Line type="linear" dataKey="converted" name="Converted" stroke={SERIES[1]} strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--card)" }} isAnimationActive={false} />
+          <Line type="linear" dataKey="created" name="Created" stroke={BLUE.dark} strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--card)" }} isAnimationActive={false} />
+          <Line type="linear" dataKey="converted" name="Converted" stroke={BLUE.light} strokeWidth={2} strokeDasharray="6 4" dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--card)" }} isAnimationActive={false} />
         </LineChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -179,7 +181,7 @@ export function SalesTrendChart({ data, currency }: { data: DashboardChartData["
           <XAxis dataKey="label" tick={AXIS} axisLine={false} tickLine={false} minTickGap={12} />
           <YAxis tickFormatter={money(currency)} tick={AXIS} axisLine={false} tickLine={false} width={64} />
           <Tooltip {...tooltipStyle} formatter={(v, n) => (n === "Sales volume" ? [moneyFull(currency)(Number(v)), n] : [v, n])} />
-          <Bar dataKey="volume" name="Sales volume" fill={SERIES[2]} radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={false} />
+          <Bar dataKey="volume" name="Sales volume" fill={BLUE.main} radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={false} />
         </BarChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -202,7 +204,7 @@ export function SalespersonChart({ data, currency }: { data: DashboardChartData[
           <XAxis type="number" hide />
           <YAxis type="category" dataKey="name" width={120} tick={AXIS} axisLine={false} tickLine={false} />
           <Tooltip {...tooltipStyle} formatter={(v) => [moneyFull(currency)(Number(v)), "Sales volume"]} />
-          <Bar dataKey="volume" fill={SERIES[0]} radius={[0, 4, 4, 0]} isAnimationActive={false}>
+          <Bar dataKey="volume" fill={BLUE.main} radius={[0, 4, 4, 0]} isAnimationActive={false}>
             <LabelList dataKey="volume" position="right" className="fill-foreground text-xs" formatter={(v) => money(currency)(Number(v))} />
           </Bar>
         </BarChart>
@@ -224,7 +226,7 @@ export function OrderStatusChart({ data }: { data: DashboardChartData["orderStat
           <XAxis type="number" hide allowDecimals={false} />
           <YAxis type="category" dataKey="label" width={90} tick={AXIS} axisLine={false} tickLine={false} />
           <Tooltip {...tooltipStyle} formatter={(v) => [v, "Orders"]} />
-          <Bar dataKey="count" fill={SERIES[0]} radius={[0, 4, 4, 0]} isAnimationActive={false}>
+          <Bar dataKey="count" fill={BLUE.main} radius={[0, 4, 4, 0]} isAnimationActive={false}>
             <LabelList dataKey="count" position="right" className="fill-foreground text-xs" />
           </Bar>
         </BarChart>

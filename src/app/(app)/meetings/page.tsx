@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { CalendarClock, ListChecks, Plus } from "lucide-react";
-import { pageContext } from "@/server/context";
+import { canFilterByOwner, pageContext, visibleUsers } from "@/server/context";
 import { listMeetings } from "@/server/services/meetings";
 import { listAssignableUsers } from "@/server/services/users";
 import { PageHeader } from "@/components/data/page-header";
@@ -62,7 +62,7 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
           { key: "when", label: "Timeframe", type: "select", options: [{ value: "upcoming", label: "Upcoming" }, { value: "past", label: "Past" }] },
           { key: "status", label: "Statuses", type: "select", options: MEETING_STATUSES.map((s) => ({ value: s, label: MEETING_STATUS_META[s].label })) },
           { key: "type", label: "Types", type: "select", options: MEETING_TYPES.map((t) => ({ value: t, label: MEETING_TYPE_LABEL[t] })) },
-          ...(ctx.dataScope === "ALL" ? [{ key: "assignee", label: "Salespeople", type: "select" as const, options: users.map((u) => ({ value: u.id, label: u.name })) }] : []),
+          ...(canFilterByOwner(ctx) ? [{ key: "assignee", label: "Salespeople", type: "select" as const, options: visibleUsers(ctx, users).map((u) => ({ value: u.id, label: u.name })) }] : []),
           { key: "from", label: "From", type: "date" },
           { key: "to", label: "To", type: "date" },
         ]}

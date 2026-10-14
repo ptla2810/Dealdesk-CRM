@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getContext } from "@/server/context";
 import { runAction } from "@/server/action";
-import { changePassword, createUser, updateProfile, updateUser } from "@/server/services/users";
+import { adminSetPassword, changePassword, createUser, updateProfile, updateUser } from "@/server/services/users";
 import {
   addCategory,
   addLeadSource,
@@ -30,6 +30,12 @@ export async function updateUserAction(input: unknown) {
     await updateUser(await getContext(), input);
     touch("/settings/users");
   }, "User updated");
+}
+export async function adminSetPasswordAction(input: unknown) {
+  return runAction(async () => {
+    await adminSetPassword(await getContext(), input);
+    touch("/settings/users");
+  }, "Password updated. The user has been signed out everywhere.");
 }
 export async function updateProfileAction(input: unknown) {
   return runAction(async () => {

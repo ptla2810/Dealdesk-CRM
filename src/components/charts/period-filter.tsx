@@ -35,14 +35,14 @@ export function PeriodFilter({
 
   return (
     <div className="mb-6 flex flex-wrap items-end gap-2">
-      <div className="flex flex-wrap gap-1 rounded-lg border bg-card p-1" role="group" aria-label="Period">
+      <div className="flex flex-wrap gap-1 rounded-xl border border-border/70 bg-card p-1 shadow-sm" role="group" aria-label="Period">
         {PERIODS.map((p) => (
           <button
             key={p.key}
             type="button"
             aria-pressed={period === p.key}
             onClick={() => apply({ period: p.key, ...(p.key === "custom" ? {} : { from: undefined, to: undefined }) })}
-            className={`rounded-md px-2.5 py-1 text-sm ${period === p.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${period === p.key ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"}`}
           >
             {p.label}
           </button>

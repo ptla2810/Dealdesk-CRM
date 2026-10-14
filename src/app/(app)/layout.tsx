@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { pageContext } from "@/server/context";
 import { AppShell, SIDEBAR_COOKIE } from "@/components/app/app-shell";
-import { APP_NAME } from "@/lib/config";
+import { APP_NAME, ASSISTANT_NAME } from "@/lib/config";
+import { isAssistantConfigured } from "@/server/assistant/chat";
 
 // Every page in this group is per-user and must never be statically cached.
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       user={{ name: ctx.user.name, email: ctx.user.email, roleName: ctx.user.roleName }}
       permissions={[...ctx.permissions]}
       initialCollapsed={collapsed}
+      assistant={{ name: ASSISTANT_NAME, configured: isAssistantConfigured(), isAdmin: ctx.user.roleKey === "ADMIN" }}
     >
       {children}
     </AppShell>

@@ -289,13 +289,14 @@ export async function archiveMeeting(ctx: Ctx, id: string) {
 
 /**
  * Follow-up commitments for the follow-up view and dashboard: open action items,
- * lead follow-up dates and upcoming meetings — for the current user or (with ALL scope) everyone.
+ * lead follow-up dates and upcoming meetings — for the current user (`mine`), or for the
+ * caller's team (OWN scope: themselves and their reports) or everyone (ALL scope).
  */
 export async function getFollowUps(ctx: Ctx, opts: { mine?: boolean; days?: number } = {}) {
   ctx.require("meeting.view");
   const today = todayUtc();
   const horizon = new Date(today.getTime() + (opts.days ?? 14) * 24 * 60 * 60 * 1000);
-  const mineOnly = opts.mine || ctx.dataScope === "OWN";
+  const people = opts.mine ? { in: [ctx.userId] } : ctx.dataScope === "OWN" ? { in: [...ctx.teamUserIds] } : undefined;
   const now = new Date();
 
   const [actionItems, leads, meetings] = await Promise.all([
@@ -303,7 +304,7 @@ export async function getFollowUps(ctx: Ctx, opts: { mine?: boolean; days?: numb
       where: {
         status: { in: ["OPEN", "IN_PROGRESS"] },
         meeting: { organizationId: ctx.orgId, deletedAt: null },
-        ...(mineOnly ? { ownerId: ctx.userId } : {}),
+        ...(people ? { ownerId: people } : {}),
         OR: [{ dueDate: { lte: horizon } }, { dueDate: null }],
       },
       include: { owner: { select: { id: true, name: true } }, meeting: { select: { id: true, number: true, title: true } } },
@@ -316,7 +317,7 @@ export async function getFollowUps(ctx: Ctx, opts: { mine?: boolean; days?: numb
         deletedAt: null,
         stage: { not: "CONVERTED" },
         nextFollowUpAt: { lte: horizon },
-        ...(mineOnly ? { ownerId: ctx.userId } : {}),
+        ...(people ? { ownerId: people } : {}),
       },
       select: { id: true, number: true, name: true, companyName: true, stage: true, nextFollowUpAt: true, owner: { select: { name: true } } },
       orderBy: { nextFollowUpAt: "asc" },
@@ -326,7 +327,7 @@ export async function getFollowUps(ctx: Ctx, opts: { mine?: boolean; days?: numb
       where: meetingWhere(ctx, {
         status: { in: ["SCHEDULED", "RESCHEDULED"] },
         scheduledAt: { gte: now, lte: horizon },
-        ...(mineOnly ? { assignedToId: ctx.userId } : {}),
+        ...(people ? { assignedToId: people } : {}),
       }),
       include: { account: { select: { name: true } }, lead: { select: { name: true } }, assignedTo: { select: { name: true } } },
       orderBy: { scheduledAt: "asc" },

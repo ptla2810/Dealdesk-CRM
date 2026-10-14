@@ -15,7 +15,7 @@ import { CONTACT_STATUSES, SUBSCRIPTION_STATUSES } from "@/lib/constants";
 export const CONTACT_SORTS = ["number", "firstName", "lastName", "email", "designation", "status", "createdAt", "updatedAt"] as const;
 
 export function contactWhere(ctx: Ctx, extra: Prisma.ContactWhereInput = {}): Prisma.ContactWhereInput {
-  return { organizationId: ctx.orgId, deletedAt: null, ...scopeOwner(ctx), ...extra };
+  return { organizationId: ctx.orgId, deletedAt: null, AND: [scopeOwner(ctx), extra] };
 }
 
 /**

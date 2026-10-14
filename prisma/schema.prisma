@@ -64,11 +64,15 @@ model User {
   lastLoginAt    DateTime?
   // Bumped on password change / forced logout; tokens carrying an older value are rejected.
   sessionVersion Int       @default(0)
+  // Reporting manager (same organization). Managers see records owned by everyone below them.
+  managerId      String?   @db.Uuid
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  role         Role         @relation(fields: [roleId], references: [id])
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role          Role         @relation(fields: [roleId], references: [id])
+  manager       User?        @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull)
+  directReports User[]       @relation("UserManager")
 
   identities          UserIdentity[]
   passwordResetTokens PasswordResetToken[]
@@ -106,6 +110,7 @@ model User {
   auditLogs         AuditLog[]
 
   @@index([organizationId])
+  @@index([managerId])
 }
 
 // External identity linked to a provisioned user (Google, OIDC SSO …).
@@ -151,16 +156,16 @@ model SsoConnection {
 }
 
 model Role {
-  id             String   @id @default(uuid()) @db.Uuid
-  organizationId String   @db.Uuid
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
   key            String // ADMIN, SALES_MANAGER, SALES_REP, SUPPORT_AGENT, or custom
   name           String
   description    String?
-  isSystem       Boolean  @default(false)
+  isSystem       Boolean   @default(false)
   // ALL = sees every record in the organization; OWN = only records they own/are assigned.
   dataScope      DataScope @default(ALL)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   permissions  RolePermission[]
@@ -214,29 +219,29 @@ enum AccountStatus {
 }
 
 model Account {
-  id                  String        @id @default(uuid()) @db.Uuid
-  organizationId      String        @db.Uuid
-  number              String // ACC-00001
-  name                String
-  nameNormalized      String // lower-cased, punctuation/legal-suffix stripped; used for duplicate detection
-  email               String? // lower-cased
-  phone               String? // E.164
-  website             String?
-  industry            String?
-  addressLine         String?
-  country             String? // ISO 3166-1 alpha-2
-  state               String?
-  city                String?
-  postalCode          String?
-  description         String?
-  status              AccountStatus @default(PROSPECT)
-  ownerId             String        @db.Uuid
-  createdById         String        @db.Uuid
-  modifiedById        String        @db.Uuid
-  duplicateOverride   Boolean       @default(false) // created despite a duplicate warning
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  deletedAt           DateTime?
+  id                String        @id @default(uuid()) @db.Uuid
+  organizationId    String        @db.Uuid
+  number            String // ACC-00001
+  name              String
+  nameNormalized    String // lower-cased, punctuation/legal-suffix stripped; used for duplicate detection
+  email             String? // lower-cased
+  phone             String? // E.164
+  website           String?
+  industry          String?
+  addressLine       String?
+  country           String? // ISO 3166-1 alpha-2
+  state             String?
+  city              String?
+  postalCode        String?
+  description       String?
+  status            AccountStatus @default(PROSPECT)
+  ownerId           String        @db.Uuid
+  createdById       String        @db.Uuid
+  modifiedById      String        @db.Uuid
+  duplicateOverride Boolean       @default(false) // created despite a duplicate warning
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  deletedAt         DateTime?
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   owner        User         @relation("AccountOwner", fields: [ownerId], references: [id])
@@ -278,32 +283,32 @@ enum SubscriptionStatus {
 }
 
 model Contact {
-  id                   String               @id @default(uuid()) @db.Uuid
-  organizationId       String               @db.Uuid
-  number               String // CON-00001
-  firstName            String
-  lastName             String
-  email                String? // lower-cased
-  phone                String? // E.164
-  designation          String?
-  department           String?
-  accountId            String?              @db.Uuid
-  ownerId              String               @db.Uuid
-  preferredChannel     CommunicationChannel @default(EMAIL)
-  status               ContactStatus        @default(ACTIVE)
-  source               String?
-  notes                String?
+  id                 String               @id @default(uuid()) @db.Uuid
+  organizationId     String               @db.Uuid
+  number             String // CON-00001
+  firstName          String
+  lastName           String
+  email              String? // lower-cased
+  phone              String? // E.164
+  designation        String?
+  department         String?
+  accountId          String?              @db.Uuid
+  ownerId            String               @db.Uuid
+  preferredChannel   CommunicationChannel @default(EMAIL)
+  status             ContactStatus        @default(ACTIVE)
+  source             String?
+  notes              String?
   // Campaign readiness — no mass email is sent by SalesFlow itself.
-  marketingConsent     Boolean              @default(false)
-  consentAt            DateTime?
-  consentSource        String?
-  subscriptionStatus   SubscriptionStatus   @default(NOT_SUBSCRIBED)
-  unsubscribedAt       DateTime?
-  createdById          String               @db.Uuid
-  modifiedById         String               @db.Uuid
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
-  deletedAt            DateTime?
+  marketingConsent   Boolean              @default(false)
+  consentAt          DateTime?
+  consentSource      String?
+  subscriptionStatus SubscriptionStatus   @default(NOT_SUBSCRIBED)
+  unsubscribedAt     DateTime?
+  createdById        String               @db.Uuid
+  modifiedById       String               @db.Uuid
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  deletedAt          DateTime?
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   account      Account?     @relation(fields: [accountId], references: [id])
@@ -311,9 +316,9 @@ model Contact {
   createdBy    User         @relation("ContactCreatedBy", fields: [createdById], references: [id])
   modifiedBy   User         @relation("ContactModifiedBy", fields: [modifiedById], references: [id])
 
-  leadLinks     LeadContact[]
-  meetingLinks  MeetingContact[]
-  tickets       Ticket[]
+  leadLinks    LeadContact[]
+  meetingLinks MeetingContact[]
+  tickets      Ticket[]
 
   @@unique([organizationId, number])
   @@index([organizationId, accountId])
@@ -346,29 +351,29 @@ model LeadSource {
 }
 
 model Lead {
-  id              String    @id @default(uuid()) @db.Uuid
-  organizationId  String    @db.Uuid
-  number          String // LD-00001
-  name            String
-  email           String // lower-cased
-  phone           String // E.164
-  companyName     String // free text captured at entry; account link set when known
-  accountId       String?   @db.Uuid
-  sourceId        String    @db.Uuid
-  ownerId         String    @db.Uuid
-  stage           LeadStage @default(QUALIFIED)
-  estimatedValue  Decimal   @default(0) @db.Decimal(18, 2)
-  currency        String    @db.Char(3)
-  description     String?
-  nextFollowUpAt  DateTime?
-  convertedAt     DateTime?
-  convertedById   String?   @db.Uuid
-  createdById     String    @db.Uuid
-  modifiedById    String    @db.Uuid
-  version         Int       @default(0)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime?
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @db.Uuid
+  number         String // LD-00001
+  name           String
+  email          String // lower-cased
+  phone          String // E.164
+  companyName    String // free text captured at entry; account link set when known
+  accountId      String?   @db.Uuid
+  sourceId       String    @db.Uuid
+  ownerId        String    @db.Uuid
+  stage          LeadStage @default(QUALIFIED)
+  estimatedValue Decimal   @default(0) @db.Decimal(18, 2)
+  currency       String    @db.Char(3)
+  description    String?
+  nextFollowUpAt DateTime?
+  convertedAt    DateTime?
+  convertedById  String?   @db.Uuid
+  createdById    String    @db.Uuid
+  modifiedById   String    @db.Uuid
+  version        Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   account      Account?     @relation(fields: [accountId], references: [id])
@@ -424,18 +429,18 @@ model LeadStageHistory {
 }
 
 model LeadDiscussion {
-  id                 String    @id @default(uuid()) @db.Uuid
-  leadId             String    @db.Uuid
-  meetingId          String?   @db.Uuid // set when logged from a meeting's history
-  discussedAt        DateTime
-  summary            String
-  requirements       String?
-  objections         String?
-  nextSteps          String?
-  nextFollowUpAt     DateTime?
-  responsibleUserId  String    @db.Uuid
-  createdById        String    @db.Uuid
-  createdAt          DateTime  @default(now())
+  id                String    @id @default(uuid()) @db.Uuid
+  leadId            String    @db.Uuid
+  meetingId         String?   @db.Uuid // set when logged from a meeting's history
+  discussedAt       DateTime
+  summary           String
+  requirements      String?
+  objections        String?
+  nextSteps         String?
+  nextFollowUpAt    DateTime?
+  responsibleUserId String    @db.Uuid
+  createdById       String    @db.Uuid
+  createdAt         DateTime  @default(now())
 
   lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
   meeting     Meeting? @relation(fields: [meetingId], references: [id])
@@ -788,16 +793,16 @@ model Order {
   updatedAt            DateTime       @updatedAt
   deletedAt            DateTime?
 
-  organization  Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  account       Account              @relation(fields: [accountId], references: [id])
-  lead          Lead?                @relation(fields: [leadId], references: [id])
-  owner         User                 @relation("OrderOwner", fields: [ownerId], references: [id])
-  createdBy     User                 @relation("OrderCreatedBy", fields: [createdById], references: [id])
-  modifiedBy    User                 @relation("OrderModifiedBy", fields: [modifiedById], references: [id])
-  lineItems     OrderLineItem[]
-  statusHistory OrderStatusHistory[]
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account        Account              @relation(fields: [accountId], references: [id])
+  lead           Lead?                @relation(fields: [leadId], references: [id])
+  owner          User                 @relation("OrderOwner", fields: [ownerId], references: [id])
+  createdBy      User                 @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  modifiedBy     User                 @relation("OrderModifiedBy", fields: [modifiedById], references: [id])
+  lineItems      OrderLineItem[]
+  statusHistory  OrderStatusHistory[]
   deliveryEvents DeliveryEvent[]
-  tickets       Ticket[]
+  tickets        Ticket[]
 
   @@unique([organizationId, number])
   @@index([organizationId, status])
@@ -807,25 +812,25 @@ model Order {
 }
 
 model OrderLineItem {
-  id              String   @id @default(uuid()) @db.Uuid
-  orderId         String   @db.Uuid
-  productId       String   @db.Uuid
+  id              String  @id @default(uuid()) @db.Uuid
+  orderId         String  @db.Uuid
+  productId       String  @db.Uuid
   position        Int
   // Snapshot of catalogue data at the time the line was priced.
   productName     String
   productSku      String
   description     String?
   unitOfMeasure   String
-  quantity        Decimal  @db.Decimal(18, 3)
-  unitPrice       Decimal  @db.Decimal(18, 2)
-  listPriceAtSale Decimal  @db.Decimal(18, 2)
-  discountPercent Decimal  @default(0) @db.Decimal(5, 2)
-  taxRatePercent  Decimal  @default(0) @db.Decimal(6, 3)
+  quantity        Decimal @db.Decimal(18, 3)
+  unitPrice       Decimal @db.Decimal(18, 2)
+  listPriceAtSale Decimal @db.Decimal(18, 2)
+  discountPercent Decimal @default(0) @db.Decimal(5, 2)
+  taxRatePercent  Decimal @default(0) @db.Decimal(6, 3)
   taxRateName     String?
-  lineSubtotal    Decimal  @db.Decimal(18, 2) // quantity × unitPrice
-  discountAmount  Decimal  @db.Decimal(18, 2)
-  taxAmount       Decimal  @db.Decimal(18, 2)
-  lineTotal       Decimal  @db.Decimal(18, 2)
+  lineSubtotal    Decimal @db.Decimal(18, 2) // quantity × unitPrice
+  discountAmount  Decimal @db.Decimal(18, 2)
+  taxAmount       Decimal @db.Decimal(18, 2)
+  lineTotal       Decimal @db.Decimal(18, 2)
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])

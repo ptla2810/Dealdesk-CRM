@@ -16,6 +16,7 @@ import { CHANNEL_LABEL, CONTACT_STATUS_META, LEAD_STAGE_META, MEETING_STATUS_MET
 import { formatPhone } from "@/lib/normalize";
 import { formatDateTime } from "@/lib/dates";
 import { archiveContactAction } from "../actions";
+import { APP_NAME } from "@/lib/config";
 
 export const metadata: Metadata = { title: "Contact" };
 
@@ -122,7 +123,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           </SectionCard>
         </div>
         <div className="space-y-4">
-          <SectionCard title="Campaign readiness" description="Email marketing is not sent from SalesFlow; these fields prepare for a future integration.">
+          <SectionCard title="Campaign readiness" description={`Email marketing is not sent from ${APP_NAME}; these fields prepare for a future integration.`}>
             <DetailList
               columns={1}
               items={[

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { ModuleIcon } from "@/components/app/module-icon";
 
 export type Crumb = { label: string; href?: string };
 
@@ -17,7 +18,7 @@ export function PageHeader({
   badge?: React.ReactNode;
 }) {
   return (
-    <div className="mb-6 space-y-2">
+    <div className="mb-6 space-y-3">
       {breadcrumbs.length > 0 && (
         <nav aria-label="Breadcrumb">
           <ol className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
@@ -38,15 +39,22 @@ export function PageHeader({
           </ol>
         </nav>
       )}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-2xl font-semibold tracking-tight">{title}</h1>
-            {badge}
+      <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-card px-5 py-5 shadow-sm sm:px-6">
+        {/* Same soft brand wash as the dashboard cards. */}
+        <span aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.07] via-transparent to-transparent" />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-4">
+            <ModuleIcon className="hidden sm:grid" />
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="truncate text-2xl font-bold tracking-tight">{title}</h1>
+                {badge}
+              </div>
+              {description && <p className="text-sm text-muted-foreground">{description}</p>}
+            </div>
           </div>
-          {description && <p className="text-sm text-muted-foreground">{description}</p>}
+          {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
         </div>
-        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
     </div>
   );

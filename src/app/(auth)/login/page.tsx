@@ -23,8 +23,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <div className="space-y-6">
       <div className="space-y-1.5">
-        <h1 className="text-2xl font-semibold tracking-tight">Sign in to {APP_NAME}</h1>
-        <p className="text-sm text-muted-foreground">Use your work email or username.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">Sign in to your workspace</h1>
+        <p className="text-sm text-muted-foreground">Welcome to {APP_NAME}. Use your work email or username.</p>
       </div>
       <LoginForm
         callbackUrl={sp.callbackUrl ?? "/"}

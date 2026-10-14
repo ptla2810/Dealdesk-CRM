@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Download, Plus, Users } from "lucide-react";
-import { pageContext } from "@/server/context";
+import { canFilterByOwner, pageContext, visibleUsers } from "@/server/context";
 import { campaignEligibility, listContacts } from "@/server/services/contacts";
 import { listAssignableUsers } from "@/server/services/users";
 import { accountOptions } from "@/server/services/accounts";
@@ -76,7 +76,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
           { key: "status", label: "Statuses", type: "select", options: CONTACT_STATUSES.map((s) => ({ value: s, label: CONTACT_STATUS_META[s].label })) },
           { key: "subscription", label: "Subscriptions", type: "select", options: SUBSCRIPTION_STATUSES.map((s) => ({ value: s, label: SUBSCRIPTION_META[s].label })) },
           { key: "account", label: "Accounts", type: "select", options: accounts.map((a) => ({ value: a.id, label: a.name })) },
-          ...(ctx.dataScope === "ALL" ? [{ key: "owner", label: "Owners", type: "select" as const, options: users.map((u) => ({ value: u.id, label: u.name })) }] : []),
+          ...(canFilterByOwner(ctx) ? [{ key: "owner", label: "Owners", type: "select" as const, options: visibleUsers(ctx, users).map((u) => ({ value: u.id, label: u.name })) }] : []),
           { key: "eligible", label: "Campaign eligible only", type: "checkbox" },
         ]}
       />

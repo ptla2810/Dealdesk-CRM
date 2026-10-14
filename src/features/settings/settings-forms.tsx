@@ -6,7 +6,7 @@ import { FormProvider, useForm, type DefaultValues, type FieldValues, type Resol
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import type { z } from "zod";
-import { Loader2, Plus } from "lucide-react";
+import { KeyRound, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CheckboxField, SelectField, TextField, type Option } from "@/components/forms/fields";
@@ -14,6 +14,7 @@ import { FormErrorBanner } from "@/components/forms/form-actions";
 import { useServerForm } from "@/components/forms/use-server-form";
 import { StatusBadge } from "@/components/data/status-badge";
 import {
+  adminSetPasswordSchema,
   categorySchema,
   changePasswordSchema,
   leadSourceSchema,
@@ -30,6 +31,7 @@ import { COMMON_CURRENCIES, ORDER_STATUSES, ORDER_STATUS_META } from "@/lib/cons
 import { cn } from "@/lib/utils";
 import {
   addCategoryAction,
+  adminSetPasswordAction,
   addLeadSourceAction,
   addTaxRateAction,
   changePasswordAction,
@@ -105,9 +107,9 @@ export function PasswordForm() {
 
 // ─── Users ──────────────────────────────────────────────────────────────────
 
-export function CreateUserDialog({ roles }: { roles: Option[] }) {
+export function CreateUserDialog({ roles, managers }: { roles: Option[]; managers: Option[] }) {
   const [open, setOpen] = useState(false);
-  const defaults = { name: "", email: "", username: "", roleId: roles[0]?.value ?? "", jobTitle: "", password: "" };
+  const defaults = { name: "", email: "", username: "", roleId: roles[0]?.value ?? "", jobTitle: "", managerId: "", password: "" };
   const { form, submit, formError } = useSchemaForm(r(userCreateSchema), defaults, createUserAction, "User created", () => setOpen(false));
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) form.reset(defaults); }}>
@@ -126,7 +128,8 @@ export function CreateUserDialog({ roles }: { roles: Option[] }) {
               <TextField name="username" label="Username (optional)" />
               <TextField name="jobTitle" label="Job title" />
               <SelectField name="roleId" label="Role" required options={roles} />
-              <TextField name="password" label="Temporary password" type="password" required autoComplete="new-password" />
+              <SelectField name="managerId" label="Reports to" options={managers} placeholder="No manager" description="Their manager sees the records they own." />
+              <TextField name="password" label="Temporary password" type="password" required autoComplete="new-password" className="sm:col-span-2" />
             </div>
             <DialogFooter><SubmitButton pending={form.formState.isSubmitting}>Create user</SubmitButton></DialogFooter>
           </form>
@@ -136,9 +139,19 @@ export function CreateUserDialog({ roles }: { roles: Option[] }) {
   );
 }
 
-export function EditUserDialog({ user, roles, isSelf }: { user: { id: string; name: string; roleId: string; jobTitle: string | null; isActive: boolean }; roles: Option[]; isSelf: boolean }) {
+export function EditUserDialog({
+  user,
+  roles,
+  managers,
+  isSelf,
+}: {
+  user: { id: string; name: string; roleId: string; jobTitle: string | null; managerId: string | null; isActive: boolean };
+  roles: Option[];
+  managers: Option[];
+  isSelf: boolean;
+}) {
   const [open, setOpen] = useState(false);
-  const defaults = { id: user.id, name: user.name, roleId: user.roleId, jobTitle: user.jobTitle ?? "", isActive: user.isActive };
+  const defaults = { id: user.id, name: user.name, roleId: user.roleId, jobTitle: user.jobTitle ?? "", managerId: user.managerId ?? "", isActive: user.isActive };
   const { form, submit, formError } = useSchemaForm(r(userUpdateSchema), defaults, updateUserAction, "User updated", () => setOpen(false));
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) form.reset(defaults); }}>
@@ -155,9 +168,40 @@ export function EditUserDialog({ user, roles, isSelf }: { user: { id: string; na
               <TextField name="name" label="Full name" required />
               <TextField name="jobTitle" label="Job title" />
               <SelectField name="roleId" label="Role" required options={roles} disabled={isSelf} />
+              <SelectField name="managerId" label="Reports to" options={managers.filter((m) => m.value !== user.id)} placeholder="No manager" />
               <CheckboxField name="isActive" label="Active" description={isSelf ? "You cannot deactivate yourself." : "Inactive users cannot sign in."} disabled={isSelf} />
             </div>
             <DialogFooter><SubmitButton pending={form.formState.isSubmitting}>Save</SubmitButton></DialogFooter>
+          </form>
+        </FormProvider>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Administrators only: set a new password for another user (e.g. a forgotten password). */
+export function SetPasswordDialog({ user }: { user: { id: string; name: string } }) {
+  const [open, setOpen] = useState(false);
+  const defaults = { id: user.id, newPassword: "", confirmPassword: "" };
+  const { form, submit, formError } = useSchemaForm(r(adminSetPasswordSchema), defaults, adminSetPasswordAction, "Password updated", () => setOpen(false));
+  return (
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) form.reset(defaults); }}>
+      <DialogTrigger asChild>
+        <Button size="xs" variant="outline" aria-label={`Set password for ${user.name}`}><KeyRound className="size-3" /> Password</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <FormProvider {...form}>
+          <form onSubmit={form.handleSubmit(submit)} className="space-y-4" noValidate>
+            <DialogHeader>
+              <DialogTitle>Set password for {user.name}</DialogTitle>
+              <DialogDescription>The user is signed out of all sessions and must sign in with the new password. Share it securely; they can change it under Profile.</DialogDescription>
+            </DialogHeader>
+            <FormErrorBanner message={formError} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField name="newPassword" label="New password" type="password" required autoComplete="new-password" description="10+ characters with upper- and lowercase letters and a number." />
+              <TextField name="confirmPassword" label="Confirm new password" type="password" required autoComplete="new-password" />
+            </div>
+            <DialogFooter><SubmitButton pending={form.formState.isSubmitting}>Update password</SubmitButton></DialogFooter>
           </form>
         </FormProvider>
       </DialogContent>
@@ -208,7 +252,7 @@ export function RolePermissionsEditor({ role }: { role: { id: string; key: strin
     });
 
   return (
-    <div className="space-y-4 rounded-lg border bg-card p-4 sm:p-6">
+    <div className="space-y-4 rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-base font-semibold">{role.name} {locked && <StatusBadge tone="info">Locked</StatusBadge>}</h2>

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Download } from "lucide-react";
-import { pageContext } from "@/server/context";
+import { canFilterByOwner, pageContext, visibleUsers } from "@/server/context";
 import { getGroupedLeadReport, getKpis, getLeadSources, getSalespersonPerformance, type GroupBy } from "@/server/services/dashboard";
 import { listAssignableUsers } from "@/server/services/users";
 import { leadSourceOptions } from "@/server/services/leads";
@@ -36,7 +36,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     getSalespersonPerformance(ctx, f),
     getLeadSources(ctx, f),
     getKpis(ctx, f),
-    ctx.dataScope === "ALL" ? listAssignableUsers(ctx) : [],
+    canFilterByOwner(ctx) ? listAssignableUsers(ctx).then((u) => visibleUsers(ctx, u)) : [],
     leadSourceOptions(ctx, true),
   ]);
   const cur = ctx.org.baseCurrency;

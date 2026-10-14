@@ -5,7 +5,7 @@ export function SectionCard({ title, description, actions, children, className }
     <Card className={className}>
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
         <div className="space-y-1">
-          <CardTitle className="text-base">{title}</CardTitle>
+          <CardTitle className="text-base font-semibold">{title}</CardTitle>
           {description && <CardDescription>{description}</CardDescription>}
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}

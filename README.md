@@ -1,4 +1,4 @@
-# SalesFlow B2B
+# LeadZen — B2B Sales CRM
 
 A B2B sales, CRM and order-management web app covering the customer lifecycle from **inquiry to order** and **order to delivery**: leads, accounts and buyers, contacts, meetings and minutes (MOM), a product catalogue, support tickets, orders with delivery tracking, dashboards and reports.
 
@@ -93,6 +93,8 @@ See [`.env.example`](.env.example). Secrets never belong in source control.
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | no | Enables Google sign-in |
 | `AUTH_SSO_ISSUER`, `AUTH_SSO_CLIENT_ID`, `AUTH_SSO_CLIENT_SECRET`, `AUTH_SSO_NAME` | no | Enables enterprise SSO through OpenID Connect |
 | `SMTP_URL`, `EMAIL_FROM` | no | Enables outbound email (password resets, customer ticket replies) |
+| `ANTHROPIC_API_KEY` | no | Enables Zeni, the read-only conversational assistant ("Ask Zeni" button), powered by Claude |
+| `NEXT_PUBLIC_ASSISTANT_NAME` | no | Assistant name shown in the UI (default "Zeni") |
 
 ### Google sign-in
 1. Create an OAuth client at https://console.cloud.google.com/apis/credentials (type: Web application).

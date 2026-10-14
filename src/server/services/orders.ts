@@ -19,7 +19,7 @@ import { deliveryEventSchema, orderCreateSchema, orderStatusChangeSchema, orderU
 export const ORDER_SORTS = ["number", "orderDate", "total", "status", "deliveryStatus", "expectedDeliveryDate", "createdAt"] as const;
 
 export function orderWhere(ctx: Ctx, extra: Prisma.OrderWhereInput = {}): Prisma.OrderWhereInput {
-  return { organizationId: ctx.orgId, deletedAt: null, ...scopeOwner(ctx), ...extra };
+  return { organizationId: ctx.orgId, deletedAt: null, AND: [scopeOwner(ctx), extra] };
 }
 
 export function orderFilters(ctx: Ctx, sp: SearchParams) {

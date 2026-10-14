@@ -3,7 +3,7 @@
  *
  * - Credentials: email or username + password (bcrypt). JWT sessions.
  * - Google OAuth and enterprise OIDC SSO are enabled only when their env vars are set.
- * - SalesFlow is invite-only: an external identity can only sign in to an existing,
+ * - LeadZen is invite-only: an external identity can only sign in to an existing,
  *   active user with the same verified email address.
  * - "Remember me" extends the session to 30 days; otherwise it ends after 12 hours.
  * - Sessions are invalidated on password reset/deactivation via `User.sessionVersion`

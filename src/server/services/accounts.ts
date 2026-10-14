@@ -16,7 +16,7 @@ import type { z } from "zod";
 export const ACCOUNT_SORTS = ["number", "name", "email", "industry", "status", "createdAt"] as const;
 
 export function accountWhere(ctx: Ctx, extra: Prisma.AccountWhereInput = {}): Prisma.AccountWhereInput {
-  return { organizationId: ctx.orgId, deletedAt: null, ...scopeOwner(ctx), ...extra };
+  return { organizationId: ctx.orgId, deletedAt: null, AND: [scopeOwner(ctx), extra] };
 }
 
 export async function listAccounts(ctx: Ctx, sp: SearchParams) {

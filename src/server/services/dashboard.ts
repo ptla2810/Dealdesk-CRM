@@ -32,24 +32,29 @@ export type DashboardFilters = { range: DateRange; ownerId?: string; sourceId?: 
 
 const num = (v: unknown) => (v === null || v === undefined ? 0 : Number(v));
 
-function scopeOwnerId(ctx: Ctx, f: DashboardFilters) {
-  return ctx.dataScope === "OWN" ? ctx.userId : f.ownerId;
+/**
+ * Owner ids the figures are limited to, or undefined for the whole organization. OWN-scope users
+ * see themselves and their reports; an owner filter outside that team is ignored, never widening it.
+ */
+function scopeOwnerIds(ctx: Ctx, f: DashboardFilters): string[] | undefined {
+  if (ctx.dataScope === "ALL") return f.ownerId ? [f.ownerId] : undefined;
+  return f.ownerId && ctx.teamUserIds.includes(f.ownerId) ? [f.ownerId] : [...ctx.teamUserIds];
 }
 
 function leadConds(ctx: Ctx, f: DashboardFilters, alias = "l") {
-  const owner = scopeOwnerId(ctx, f);
+  const owners = scopeOwnerIds(ctx, f);
   const a = Prisma.raw(`"${alias}"`);
   return Prisma.sql`${a}."organizationId" = ${ctx.orgId}::uuid AND ${a}."deletedAt" IS NULL
-    ${owner ? Prisma.sql`AND ${a}."ownerId" = ${owner}::uuid` : Prisma.empty}
+    ${owners ? Prisma.sql`AND ${a}."ownerId" = ANY(${owners}::uuid[])` : Prisma.empty}
     ${f.sourceId ? Prisma.sql`AND ${a}."sourceId" = ${f.sourceId}::uuid` : Prisma.empty}`;
 }
 
 function orderConds(ctx: Ctx, f: DashboardFilters, alias = "o") {
-  const owner = scopeOwnerId(ctx, f);
+  const owners = scopeOwnerIds(ctx, f);
   const a = Prisma.raw(`"${alias}"`);
   return Prisma.sql`${a}."organizationId" = ${ctx.orgId}::uuid AND ${a}."deletedAt" IS NULL
     AND ${a}."orderDate" BETWEEN ${f.range.from} AND ${f.range.to}
-    ${owner ? Prisma.sql`AND ${a}."ownerId" = ${owner}::uuid` : Prisma.empty}`;
+    ${owners ? Prisma.sql`AND ${a}."ownerId" = ANY(${owners}::uuid[])` : Prisma.empty}`;
 }
 
 const inPeriod = (f: DashboardFilters, col: string, alias = "l") =>
@@ -206,7 +211,7 @@ export async function getSalesTrend(ctx: Ctx, f: DashboardFilters) {
 }
 
 export async function getSalespersonPerformance(ctx: Ctx, f: DashboardFilters) {
-  const owner = scopeOwnerId(ctx, f);
+  const owners = scopeOwnerIds(ctx, f);
   const rows = await prisma.$queryRaw<
     { id: string; name: string; leads: bigint; converted: bigint; pipeline: Prisma.Decimal; volume: Prisma.Decimal; orders: bigint }[]
   >`
@@ -218,7 +223,7 @@ export async function getSalespersonPerformance(ctx: Ctx, f: DashboardFilters) {
       (SELECT COUNT(*) FROM "Order" o WHERE o."ownerId" = u.id AND ${orderConds(ctx, f)} AND o.status::text = ANY(${REVENUE_STATUSES})) AS orders
     FROM "User" u
     WHERE u."organizationId" = ${ctx.orgId}::uuid AND u."isActive" = true
-      ${owner ? Prisma.sql`AND u.id = ${owner}::uuid` : Prisma.empty}`;
+      ${owners ? Prisma.sql`AND u.id = ANY(${owners}::uuid[])` : Prisma.empty}`;
   return rows
     .map((r) => {
       const leads = num(r.leads);

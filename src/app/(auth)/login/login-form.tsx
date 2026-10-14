@@ -48,22 +48,22 @@ export function LoginForm({
         <input type="hidden" name="callbackUrl" value={callbackUrl} />
         <div className="space-y-1.5">
           <Label htmlFor="identifier">Email or username</Label>
-          <Input id="identifier" name="identifier" autoComplete="username" required defaultValue={state?.identifier} autoFocus />
+          <Input id="identifier" name="identifier" autoComplete="username" placeholder="you@company.com" required defaultValue={state?.identifier} autoFocus className="h-11" />
         </div>
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="password">Password</Label>
-            <Link href="/forgot-password" className="text-sm text-primary hover:underline">
+            <Link href="/forgot-password" className="text-sm font-medium text-primary hover:underline">
               Forgot password?
             </Link>
           </div>
-          <Input id="password" name="password" type="password" autoComplete="current-password" required />
+          <Input id="password" name="password" type="password" autoComplete="current-password" placeholder="••••••••••" required className="h-11" />
         </div>
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <input type="checkbox" name="remember" className="size-4 accent-[var(--primary)]" />
           Keep me signed in for 30 days
         </label>
-        <Button type="submit" className="w-full" disabled={pending}>
+        <Button type="submit" className="h-11 w-full text-[0.95rem] font-semibold shadow-sm" disabled={pending}>
           {pending && <Loader2 className="size-4 animate-spin" />}
           Sign in
         </Button>
@@ -72,7 +72,7 @@ export function LoginForm({
       {(googleEnabled || ssoEnabled) && (
         <>
           <div className="relative text-center text-xs text-muted-foreground">
-            <span className="relative z-10 bg-background px-2">or continue with</span>
+            <span className="relative z-10 bg-card px-2">or continue with</span>
             <span className="absolute inset-x-0 top-1/2 border-t" />
           </div>
           <form action={oauthSignInAction} className="grid gap-2">
@@ -96,7 +96,7 @@ export function LoginForm({
       )}
 
       {showDemoHint && (
-        <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+        <p className="rounded-lg border border-dashed bg-muted/50 p-3 text-xs leading-relaxed text-muted-foreground">
           <strong>Development demo:</strong> sign in as <code>admin@salesflow.demo</code>, <code>manager@salesflow.demo</code>, <code>priya@salesflow.demo</code> or{" "}
           <code>support@salesflow.demo</code> with password <code>Demo@12345</code>. Hidden in production.
         </p>

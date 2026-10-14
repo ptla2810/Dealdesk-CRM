@@ -24,7 +24,9 @@ All business rules live in `src/server/services` and the shared pure modules in 
 | `dataScope` | the role's `ALL` / `OWN` setting |
 | `settings` | `Organization.settings` JSON, validated with Zod and defaulted |
 
-Every service function starts with `ctx.require("<module>.<action>")` and builds its Prisma `where` clauses from helpers such as `leadWhere(ctx)`. These always include `organizationId = ctx.orgId`, `deletedAt IS NULL` and the data-scope filter (`ownerId = ctx.userId` for OWN roles). A record outside the caller's tenant or scope behaves as if it does not exist (`NotFoundError`).
+Every service function starts with `ctx.require("<module>.<action>")` and builds its Prisma `where` clauses from helpers such as `leadWhere(ctx)`. These always include `organizationId = ctx.orgId`, `deletedAt IS NULL` and the data-scope filter. A record outside the caller's tenant or scope behaves as if it does not exist (`NotFoundError`).
+
+**Reporting hierarchy.** Each user may have a reporting manager (`User.managerId`, same organization, set by administrators in *Settings → Users*). `Ctx.teamUserIds` holds the user plus all direct and indirect reports, loaded with a recursive query on every request. For OWN roles, the data-scope filter is `ownerId IN teamUserIds` (meetings and tickets: assignee or creator in the team). Every list, search, export, report, dashboard figure, follow-up view and assistant tool uses it, so a manager sees, and with the right permissions edits, the records of everyone below them. The scope filter is combined with other filters through `AND`, so a filter from the URL (for example `?owner=`) can never widen it. Managers are validated against cycles, self-reference and other tenants. Profile shows a "My team" list.
 
 **Authentication.** Auth.js v5 with JWT sessions.
 - The Credentials provider calls `verifyCredentials()`: bcrypt (cost 12), a constant-time comparison against a dummy hash for unknown users, and an in-memory rate limit of 10 failures per identifier per 15 minutes.
@@ -34,6 +36,7 @@ Every service function starts with `ctx.require("<module>.<action>")` and builds
 
 **Authorization.** 49 permission keys (`src/lib/permissions.ts`), grouped by module, with actions view, create, edit, assign, export, delete, plus specific ones such as `lead.convert`, `order.override_price` and `ticket.reply_customer`. The four system roles are seeded with defaults. Administrators edit grants and data scope in *Settings → Roles*. Guards against privilege escalation:
 - Only administrators can assign the Administrator role or edit administrators.
+- Only administrators (the Administrator role, not just `settings.manage_users`) can set a new password for another user. Doing so signs that user out everywhere, voids open reset links and is audited without the password.
 - Non-administrators cannot edit the permissions of their own role.
 - The Administrator role always holds every permission.
 - The organization must keep at least one active administrator.
@@ -150,8 +153,24 @@ All figures come from live SQL over the caller's tenant and data scope (`src/ser
 
 Charts: cumulative sales funnel (leads created in the period that reached at least each stage, from stage history), leads by stage, lead sources (created and converted), conversion trend (created vs converted per day, week or month depending on range length), sales volume trend, salesperson performance, pipeline value by stage, and order status distribution. Each chart has a table view. Reports group leads by salesperson, source, account or stage and export to CSV.
 
+## AI assistant
+
+**Zeni** (name configurable with `NEXT_PUBLIC_ASSISTANT_NAME`) is a conversational assistant opened from the "Ask Zeni" button at the bottom right of every page. It answers questions about CRM data in plain language. Until `ANTHROPIC_API_KEY` is set, the panel explains that it is not enabled. The conversation is kept in the browser tab (sessionStorage) across page changes.
+
+```
+AssistantPanel ──POST /api/assistant──► runAssistant (server/assistant/chat.ts)
+   (NDJSON stream)                         │  Claude (claude-opus-5-5) via the Anthropic SDK tool runner
+                                           └─► tools (server/assistant/tools.ts) ──► services/*.ts with the caller's Ctx
+```
+
+- **Read-only.** The tools are `search_records`, `list_records`, `get_record`, `search_meeting_minutes` (MoM summaries, requirements, decisions, notes and action items), `get_sales_metrics` and `get_follow_ups`. They call the same service functions as the pages, so permissions, tenant isolation and OWN data scope apply unchanged. Nothing can be created, changed or deleted.
+- **Errors.** Typed `AppError` messages (forbidden, not found) are passed back to the model so it can explain them. Unexpected errors are logged and replaced with a generic message. Provider errors reach the user only as user-safe text.
+- **History.** The browser keeps the conversation and sends prior turns as plain text. Tool results and model reasoning from earlier turns are not replayed. The server keeps the last 20 messages.
+- **Limits.** 30 requests per user per 10 minutes (in-memory, like the login limiter); at most 8 model/tool rounds per question; tool results are capped at 30 000 characters.
+- **Model settings.** Low effort for chat latency, prompt caching on the stable system prompt and tools, and the server-side refusal fallback (`fallbacks: "default"`).
+
 ## Testing
 
 - `tests/unit`: order math, workflow rules, normalization, timezone and period logic.
-- `tests/integration`: the service layer against a real PostgreSQL test database. Covers login and sessions, password reset, RBAC and escalation guards, tenant isolation, lead CRUD, stages, discussions and conversion (including duplicate prevention and atomicity), account validation and duplicate warnings, contacts and consent, meetings, MOM and follow-ups, SKU uniqueness, the ticket lifecycle, order pricing, snapshots, workflow and delivery, and dashboard KPI calculations with exact expected values.
+- `tests/integration`: the service layer (plus the assistant's tools, called directly without the model) against a real PostgreSQL test database. Covers login and sessions, password reset, RBAC and escalation guards, tenant isolation, lead CRUD, stages, discussions and conversion (including duplicate prevention and atomicity), account validation and duplicate warnings, contacts and consent, meetings, MOM and follow-ups, SKU uniqueness, the ticket lifecycle, order pricing, snapshots, workflow and delivery, and dashboard KPI calculations with exact expected values.
 - `e2e`: Playwright, desktop and mobile. Covers login errors, sign-out, permission gating, the full lead → discussion → conversion → order → confirm flow, the duplicate-account dialog, global search, meetings with MOM and action items, the ticket notes, replies and resolve flow, and the mobile navigation drawer.

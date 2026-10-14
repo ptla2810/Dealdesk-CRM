@@ -5,7 +5,7 @@ import { googleEnabled, ssoEnabled, ssoName } from "@/server/auth";
 import { isEmailConfigured } from "@/server/mailer";
 import { PageHeader } from "@/components/data/page-header";
 import { SectionCard } from "@/components/data/section-card";
-import { APP_URL } from "@/lib/config";
+import { APP_NAME, APP_URL } from "@/lib/config";
 
 export const metadata: Metadata = { title: "Authentication & integrations" };
 
@@ -48,7 +48,7 @@ export default async function IntegrationsPage() {
           </p>
         </SectionCard>
         <SectionCard title="Calendar & marketing platforms" actions={<Status on={false} label="Not available yet" />}>
-          <p className="text-sm text-muted-foreground">Meetings are stored in SalesFlow only. Contacts carry consent and subscription fields ready for a future email-marketing integration.</p>
+          <p className="text-sm text-muted-foreground">Meetings are stored in {APP_NAME} only. Contacts carry consent and subscription fields ready for a future email-marketing integration.</p>
         </SectionCard>
       </div>
     </>

@@ -26,7 +26,7 @@ import { accountFields } from "@/lib/validation/account";
 export const LEAD_SORTS = ["number", "name", "companyName", "stage", "estimatedValue", "createdAt", "updatedAt", "nextFollowUpAt"] as const;
 
 export function leadWhere(ctx: Ctx, extra: Prisma.LeadWhereInput = {}): Prisma.LeadWhereInput {
-  return { organizationId: ctx.orgId, deletedAt: null, ...scopeOwner(ctx), ...extra };
+  return { organizationId: ctx.orgId, deletedAt: null, AND: [scopeOwner(ctx), extra] };
 }
 
 export function leadFilters(ctx: Ctx, sp: SearchParams) {

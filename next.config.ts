@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Hide the floating Next.js dev badge; compile and runtime errors still surface.
+  devIndicators: false,
   serverExternalPackages: ["@prisma/client", "bcryptjs"],
   async headers() {
     return [

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Download, Plus, Truck } from "lucide-react";
-import { pageContext } from "@/server/context";
+import { canFilterByOwner, pageContext, visibleUsers } from "@/server/context";
 import { listOrders } from "@/server/services/orders";
 import { listAssignableUsers } from "@/server/services/users";
 import { accountOptions } from "@/server/services/accounts";
@@ -73,7 +73,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           { key: "status", label: "Statuses", type: "select", options: ORDER_STATUSES.map((s) => ({ value: s, label: ORDER_STATUS_META[s].label })) },
           { key: "delivery", label: "Delivery statuses", type: "select", options: DELIVERY_STATUSES.map((s) => ({ value: s, label: DELIVERY_STATUS_META[s].label })) },
           { key: "account", label: "Accounts", type: "select", options: accounts.map((a) => ({ value: a.id, label: a.name })) },
-          ...(ctx.dataScope === "ALL" ? [{ key: "owner", label: "Owners", type: "select" as const, options: users.map((u) => ({ value: u.id, label: u.name })) }] : []),
+          ...(canFilterByOwner(ctx) ? [{ key: "owner", label: "Owners", type: "select" as const, options: visibleUsers(ctx, users).map((u) => ({ value: u.id, label: u.name })) }] : []),
           { key: "from", label: "Order date from", type: "date" },
           { key: "to", label: "Order date to", type: "date" },
           { key: "active", label: "In progress only", type: "checkbox" },

@@ -103,17 +103,22 @@ async function main() {
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
 
   // ─── Tenant 1: main demo organization ─────────────────────────────────────
-  const { org, roles } = await createOrg("Northwind Industrial Supply (Demo)", "northwind-demo", "USD", "Asia/Kolkata");
+  const { org, roles } = await createOrg("Pankaj Consulting LLC", "northwind-demo", "USD", "Asia/Kolkata");
   const mkUser = (name: string, email: string, role: string, jobTitle: string, username?: string) =>
     prisma.user.create({ data: { organizationId: org.id, roleId: roles[role]!, name, email, username, jobTitle, passwordHash } });
 
-  const admin = await mkUser("Asha Verma", "admin@salesflow.demo", "ADMIN", "Head of Operations", "admin");
+  const admin = await mkUser("Pankaj Tiwari", "admin@salesflow.demo", "ADMIN", "Head of Operations", "admin");
   const manager = await mkUser("Rohan Mehta", "manager@salesflow.demo", "SALES_MANAGER", "Sales Manager", "rohan");
   const rep1 = await mkUser("Priya Nair", "priya@salesflow.demo", "SALES_REP", "Account Executive", "priya");
   const rep2 = await mkUser("Daniel Brooks", "daniel@salesflow.demo", "SALES_REP", "Account Executive", "daniel");
   const rep3 = await mkUser("Meera Iyer", "meera@salesflow.demo", "SALES_REP", "Business Development Rep", "meera");
   const support = await mkUser("Sam Okafor", "support@salesflow.demo", "SUPPORT_AGENT", "Customer Support Lead", "sam");
   const support2 = await mkUser("Lena Fischer", "lena@salesflow.demo", "SUPPORT_AGENT", "Support Agent", "lena");
+  // Reporting structure: managers see records owned by everyone below them.
+  // Meera reports to Priya, so a sales rep (OWN scope) also sees her team member's records.
+  for (const [u, m] of [[manager, admin], [support, admin], [rep1, manager], [rep2, manager], [rep3, rep1], [support2, support]] as const) {
+    await prisma.user.update({ where: { id: u.id }, data: { managerId: m.id } });
+  }
   const reps = [rep1, rep2, rep3, manager];
 
   const sources = await Promise.all(
@@ -672,7 +677,7 @@ async function main() {
   console.table([
     { role: "Administrator", login: "admin@salesflow.demo (or username: admin)" },
     { role: "Sales Manager", login: "manager@salesflow.demo" },
-    { role: "Sales Representative", login: "priya@salesflow.demo / daniel@salesflow.demo / meera@salesflow.demo" },
+    { role: "Sales Representative", login: "priya@salesflow.demo (team lead for Meera) / daniel@salesflow.demo / meera@salesflow.demo" },
     { role: "Support Agent", login: "support@salesflow.demo / lena@salesflow.demo" },
     { role: "Tenant 2 admin", login: "admin@globex.demo" },
   ]);

@@ -109,7 +109,7 @@ export function OrderForm({
           <TextareaField name="shippingAddress" label="Shipping address" required rows={2} />
         </FormSection>
 
-        <fieldset className="space-y-4 rounded-lg border bg-card p-4 sm:p-6">
+        <fieldset className="space-y-4 rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:p-6">
           <legend className="sr-only">Product line items</legend>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>

@@ -12,8 +12,8 @@ export function EmptyState({
   icon?: LucideIcon;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed px-6 py-12 text-center">
-      <span className="mb-3 rounded-full bg-muted p-3 text-muted-foreground">
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-card/60 px-6 py-12 text-center">
+      <span className="mb-3 rounded-full bg-primary/10 p-3 text-primary">
         <Icon className="size-6" aria-hidden />
       </span>
       <h3 className="text-sm font-semibold">{title}</h3>

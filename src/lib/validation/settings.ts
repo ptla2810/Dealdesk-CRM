@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { currencyCode, optionalText, requiredEmail, requiredText, uuid } from "./common";
+import { currencyCode, optionalText, optionalUuid, requiredEmail, requiredText, uuid } from "./common";
 
 export const passwordSchema = z
   .string()
@@ -20,6 +20,7 @@ export const userCreateSchema = z.object({
     .optional(),
   roleId: uuid("Role"),
   jobTitle: optionalText(120),
+  managerId: optionalUuid,
   password: passwordSchema,
 });
 export type UserCreateInput = z.input<typeof userCreateSchema>;
@@ -29,8 +30,18 @@ export const userUpdateSchema = z.object({
   name: requiredText("Name", 120),
   roleId: uuid("Role"),
   jobTitle: optionalText(120),
+  managerId: optionalUuid,
   isActive: z.boolean(),
 });
+
+/** Administrator sets a new password for another user (no current password needed). */
+export const adminSetPasswordSchema = z
+  .object({
+    id: uuid(),
+    newPassword: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((v) => v.newPassword === v.confirmPassword, { path: ["confirmPassword"], message: "Passwords do not match" });
 export type UserUpdateInput = z.input<typeof userUpdateSchema>;
 
 export const profileSchema = z.object({

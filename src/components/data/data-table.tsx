@@ -42,10 +42,10 @@ export function DataTable<T extends { id: string }>({
 
   return (
     <div className="space-y-3">
-      <div className="overflow-x-auto rounded-lg border bg-card">
+      <div className="overflow-x-auto rounded-2xl border border-border/70 bg-card shadow-sm">
         <table className="w-full caption-bottom text-sm">
           <caption className="sr-only">{caption}</caption>
-          <thead className="bg-muted/50">
+          <thead className="bg-gradient-to-r from-primary/[0.06] to-muted/40">
             <tr className="border-b">
               {columns.map((c) => {
                 const active = c.sortKey && sort === c.sortKey;
@@ -55,7 +55,7 @@ export function DataTable<T extends { id: string }>({
                     key={c.key}
                     scope="col"
                     aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : undefined}
-                    className={cn("h-10 whitespace-nowrap px-3 text-left align-middle font-medium text-muted-foreground", c.className)}
+                    className={cn("h-11 whitespace-nowrap px-3 text-left align-middle text-xs font-semibold tracking-wide text-muted-foreground uppercase", c.className)}
                   >
                     {c.sortKey ? (
                       <Link
@@ -76,11 +76,11 @@ export function DataTable<T extends { id: string }>({
           </thead>
           <tbody>
             {data.rows.map((row) => (
-              <tr key={row.id} className="border-b transition-colors last:border-0 hover:bg-muted/40">
+              <tr key={row.id} className="border-b border-border/60 transition-colors last:border-0 hover:bg-primary/[0.04]">
                 {columns.map((c, i) => (
-                  <td key={c.key} className={cn("px-3 py-2.5 align-middle whitespace-nowrap", c.className)}>
+                  <td key={c.key} className={cn("px-3 py-3 align-middle whitespace-nowrap", c.className)}>
                     {i === 0 && rowHref ? (
-                      <Link href={rowHref(row)} className="font-medium text-primary hover:underline">
+                      <Link href={rowHref(row)} className="font-semibold text-primary hover:underline">
                         {c.cell(row)}
                       </Link>
                     ) : (
@@ -115,7 +115,7 @@ export function Pagination({ data, basePath, searchParams }: { data: Paged<unkno
           <Link
             key={s}
             href={withParams(basePath, searchParams, { pageSize: s, page: undefined })}
-            className={cn("rounded px-1.5 py-0.5", s === data.pageSize ? "bg-accent font-medium text-foreground" : "hover:text-foreground")}
+            className={cn("rounded-md px-2 py-0.5", s === data.pageSize ? "bg-primary font-semibold text-primary-foreground" : "hover:bg-accent hover:text-foreground")}
             aria-current={s === data.pageSize ? "true" : undefined}
             scroll={false}
           >

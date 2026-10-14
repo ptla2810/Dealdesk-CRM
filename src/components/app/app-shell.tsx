@@ -1,9 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Menu, PanelLeftClose, PanelLeftOpen, Workflow } from "lucide-react";
+import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
@@ -12,12 +13,13 @@ import { NAV_ITEMS } from "./nav";
 import { GlobalSearch } from "./global-search";
 import { NotificationsBell } from "./notifications-bell";
 import { UserMenu } from "./user-menu";
+import { AssistantPanel } from "@/features/assistant/assistant-panel";
 
 type ShellUser = { name: string; email: string; roleName: string };
 
 export const SIDEBAR_COOKIE = "sf_sidebar_collapsed";
 
-export function AppShell({ appName, orgName, user, permissions, initialCollapsed, children }: { appName: string; orgName: string; user: ShellUser; permissions: string[]; initialCollapsed: boolean; children: React.ReactNode }) {
+export function AppShell({ appName, orgName, user, permissions, initialCollapsed, assistant, children }: { appName: string; orgName: string; user: ShellUser; permissions: string[]; initialCollapsed: boolean; assistant: { name: string; configured: boolean; isAdmin: boolean }; children: React.ReactNode }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -65,13 +67,11 @@ export function AppShell({ appName, orgName, user, permissions, initialCollapsed
   );
 
   const brand = (compact: boolean) => (
-    <Link href="/" className={cn("flex h-14 items-center gap-2.5 border-b border-sidebar-border px-4", compact && "justify-center px-0")}>
-      <span className="grid size-8 place-items-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-        <Workflow className="size-4" aria-hidden />
-      </span>
+    <Link href="/" className={cn("flex h-16 items-center gap-3 border-b border-sidebar-border px-4", compact && "justify-center px-0")}>
+      <Image src="/brand/leadzen-mark.png" alt="" width={40} height={40} priority className="size-10 shrink-0" />
       {!compact && (
         <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold text-sidebar-accent-foreground">{appName}</span>
+          <span className="block truncate text-lg leading-tight font-semibold tracking-tight text-sidebar-accent-foreground">{appName}</span>
           <span className="block truncate text-xs text-sidebar-foreground/60">{orgName}</span>
         </span>
       )}
@@ -105,7 +105,7 @@ export function AppShell({ appName, orgName, user, permissions, initialCollapsed
       </Sheet>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/95 px-3 backdrop-blur sm:px-4">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b bg-background/95 px-3 backdrop-blur sm:px-4">
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Open navigation">
             <Menu className="size-5" />
           </Button>
@@ -115,6 +115,7 @@ export function AppShell({ appName, orgName, user, permissions, initialCollapsed
           <NotificationsBell />
           <UserMenu user={user} />
         </header>
+        <AssistantPanel name={assistant.name} userFirstName={user.name.split(" ")[0] ?? user.name} configured={assistant.configured} isAdmin={assistant.isAdmin} />
         <main id="main" className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-6">
           {children}
         </main>

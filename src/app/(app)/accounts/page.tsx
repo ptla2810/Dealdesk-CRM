@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Building2, Download, Plus } from "lucide-react";
-import { pageContext } from "@/server/context";
+import { canFilterByOwner, pageContext, visibleUsers } from "@/server/context";
 import { listAccounts } from "@/server/services/accounts";
 import { listAssignableUsers } from "@/server/services/users";
 import { PageHeader } from "@/components/data/page-header";
@@ -66,7 +66,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
         filters={[
           { key: "status", label: "Statuses", type: "select", options: ACCOUNT_STATUSES.map((s) => ({ value: s, label: ACCOUNT_STATUS_META[s].label })) },
           { key: "industry", label: "Industries", type: "select", options: INDUSTRIES.map((i) => ({ value: i, label: i })) },
-          ...(ctx.dataScope === "ALL" ? [{ key: "owner", label: "Owners", type: "select" as const, options: users.map((u) => ({ value: u.id, label: u.name })) }] : []),
+          ...(canFilterByOwner(ctx) ? [{ key: "owner", label: "Owners", type: "select" as const, options: visibleUsers(ctx, users).map((u) => ({ value: u.id, label: u.name })) }] : []),
           { key: "createdFrom", label: "Created from", type: "date" },
           { key: "createdTo", label: "Created to", type: "date" },
         ]}

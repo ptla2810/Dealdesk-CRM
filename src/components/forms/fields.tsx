@@ -308,7 +308,7 @@ export function MultiComboboxField<T extends FieldValues>({ name, label, require
 
 export function FormSection({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
-    <fieldset className="space-y-4 rounded-lg border bg-card p-4 sm:p-6">
+    <fieldset className="space-y-4 rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:p-6">
       <legend className="sr-only">{title}</legend>
       <div>
         <h2 className="text-base font-semibold">{title}</h2>

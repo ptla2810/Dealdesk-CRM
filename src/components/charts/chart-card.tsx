@@ -26,13 +26,13 @@ export function ChartCard({
 }) {
   const [view, setView] = useState<"chart" | "table">("chart");
   return (
-    <Card className={cn("gap-3", className)}>
+    <Card className={cn("gap-3 border-border/70", className)}>
       <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
         <div className="space-y-1">
-          <CardTitle className="text-base">{title}</CardTitle>
+          <CardTitle className="text-[0.95rem] font-semibold">{title}</CardTitle>
           {description && <CardDescription className="text-xs">{description}</CardDescription>}
         </div>
-        <div className="flex shrink-0 rounded-md border p-0.5" role="group" aria-label={`${title} view`}>
+        <div className="flex shrink-0 rounded-lg bg-muted p-0.5" role="group" aria-label={`${title} view`}>
           {(["chart", "table"] as const).map((v) => (
             <button
               key={v}
@@ -40,7 +40,7 @@ export function ChartCard({
               onClick={() => setView(v)}
               aria-pressed={view === v}
               aria-label={v === "chart" ? "Show chart" : "Show table"}
-              className={cn("rounded px-1.5 py-1 text-muted-foreground", view === v && "bg-muted text-foreground")}
+              className={cn("rounded-md px-1.5 py-1 text-muted-foreground transition-colors hover:text-foreground", view === v && "bg-card text-foreground shadow-sm")}
             >
               {v === "chart" ? <BarChart3 className="size-3.5" /> : <Table2 className="size-3.5" />}
             </button>
