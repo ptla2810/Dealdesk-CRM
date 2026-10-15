@@ -68,7 +68,7 @@ export function AppShell({ appName, orgName, user, permissions, initialCollapsed
 
   const brand = (compact: boolean) => (
     <Link href="/" className={cn("flex h-16 items-center gap-3 border-b border-sidebar-border px-4", compact && "justify-center px-0")}>
-      <Image src="/brand/leadzen-mark.png" alt="" width={40} height={40} priority className="size-10 shrink-0" />
+      <Image src="/brand/dealdesk-mark.png" alt="" width={40} height={40} priority className="size-10 shrink-0" />
       {!compact && (
         <span className="min-w-0">
           <span className="block truncate text-lg leading-tight font-semibold tracking-tight text-sidebar-accent-foreground">{appName}</span>

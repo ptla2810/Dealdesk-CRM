@@ -58,7 +58,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     <>
       <section aria-labelledby="dashboard-title" className="relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-from to-brand-to px-5 py-6 text-white shadow-lg sm:px-8 sm:py-7">
         <div aria-hidden className="pointer-events-none absolute -top-24 -right-16 size-72 rounded-full bg-white/10 blur-2xl" />
-        <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/3 size-72 rounded-full bg-sky-300/15 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/3 size-72 rounded-full bg-teal-300/15 blur-3xl" />
         <div className="relative">
           <div className="min-w-0 space-y-2">
             <p className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-white/75 uppercase">

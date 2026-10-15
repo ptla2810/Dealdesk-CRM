@@ -57,7 +57,7 @@ export function ContactForm({ mode, defaults, owners, accounts, canChooseOwner, 
           <TextField name="source" label="Source" placeholder="Trade show, referral…" />
           <TextareaField name="notes" label="Notes" rows={3} className="sm:col-span-2" />
         </FormSection>
-        <FormSection title="Marketing consent" description="Recorded for future email-campaign integrations. LeadZen does not send marketing email itself.">
+        <FormSection title="Marketing consent" description="Recorded for future email-campaign integrations. DealDesk does not send marketing email itself.">
           <CheckboxField name="marketingConsent" label="Contact has given marketing consent" description="The consent timestamp is recorded automatically when consent is first given." className="sm:col-span-2" />
           {consent && <TextField name="consentSource" label="Consent source" placeholder="Web form, signed agreement…" />}
           <SelectField

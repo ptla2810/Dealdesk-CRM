@@ -1,4 +1,4 @@
-# LeadZen — B2B Sales CRM
+# DealDesk — B2B Sales CRM
 
 A B2B sales, CRM and order-management web app covering the customer lifecycle from **inquiry to order** and **order to delivery**: leads, accounts and buyers, contacts, meetings and minutes (MOM), a product catalogue, support tickets, orders with delivery tracking, dashboards and reports.
 

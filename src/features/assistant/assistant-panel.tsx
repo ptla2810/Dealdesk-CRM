@@ -30,7 +30,7 @@ const SUGGESTIONS = [
 ];
 
 // Conversation survives navigation and reloads in this tab only; cleared when the tab closes.
-const STORAGE_KEY = "leadzen-assistant-chat";
+const STORAGE_KEY = "dealdesk-assistant-chat";
 
 function loadHistory(): ChatMessage[] {
   try {

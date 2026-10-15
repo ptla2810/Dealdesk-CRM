@@ -16,12 +16,12 @@ import {
 } from "recharts";
 import { ChartCard } from "./chart-card";
 
-// Single-hue theme palette: shades of the LeadZen blue (validated with the data-viz palette validator,
-// ordinal mode: monotone lightness, visible steps, light end ≥ 2:1 on the card surface).
+// Brand palette from the DealDesk logo: navy and teal (ordinal ramp runs teal → navy with
+// monotone lightness so stage order still reads without colour).
 // Two-series charts pair the dark and light shade and always show a legend; lines also differ by dash.
-const BLUE = { main: "#2a78d6", dark: "#184f95", light: "#6da7ec" } as const;
+const BLUE = { main: "#1f9e91", dark: "#163a5e", light: "#4fd1c2" } as const;
 // Ordinal ramp for ordered funnel stages, light → dark.
-const ORDINAL = ["#86b6ef", "#5598e7", "#256abf", "#184f95"];
+const ORDINAL = ["#7ddccf", "#1fb5a5", "#237394", "#163a5e"];
 const GRID = "var(--border)";
 const AXIS = { fontSize: 12, fill: "var(--muted-foreground)" };
 
