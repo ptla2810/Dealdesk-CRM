@@ -3,7 +3,7 @@
 # This app is NOT deployed to GitHub Pages. Pages only serves static files, and
 # Dealdesk-CRM needs a Node server (Auth.js sign-in, Prisma/PostgreSQL, API
 # routes, server actions). `output: "export"` fails on /api/auth/[...nextauth].
-# Deployment happens on a server host (Netlify) that builds from this branch.
+# Deployment happens on Render (see render.yaml), which builds from this branch.
 name: CI
 
 on:
