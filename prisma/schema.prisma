@@ -11,7 +11,9 @@
 // - Money is stored as Decimal(18,2); quantities as Decimal(18,3).
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Netlify Functions run on AWS Lambda (RHEL); "native" covers local dev and the build image.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
